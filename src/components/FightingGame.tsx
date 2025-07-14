@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Play, Pause, Square, ArrowLeft, ArrowRight, Shield, ArrowDown } from 'lucide-react';
+import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
 
 interface Character {
   id: string;
@@ -20,41 +20,61 @@ interface Character {
 
 interface GameState {
   timeLeft: number;
-  round: number;
-  player1Wins: number;
-  player2Wins: number;
-  gamePhase: 'menu' | 'character-select' | 'stage-select' | 'fighting' | 'game-over';
+  battleRound: number;
+  battleWins: number;
+  battleLosses: number;
+  currentLevel: number;
+  gamePhase: 'cover' | 'opening-animation' | 'character-setup' | 'level-battle' | 'ending-animation' | 'game-complete';
   isPaused: boolean;
+  playerPhoto: string | null;
 }
 
-const CHARACTERS = [
-  { id: 'warrior', name: '戰士', color: '#FF6B6B' },
-  { id: 'ninja', name: '忍者', color: '#4ECDC4' },
-  { id: 'mage', name: '法師', color: '#45B7D1' },
-  { id: 'berserker', name: '狂戰士', color: '#96CEB4' },
-  { id: 'assassin', name: '刺客', color: '#FFEAA7' },
-  { id: 'paladin', name: '聖騎士', color: '#DDA0DD' }
+const LEVELS = [
+  { 
+    id: 1, 
+    name: '第一關：街頭霸主', 
+    boss: '混混老大',
+    bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
+    description: '在黑暗的小巷中，你遇到了第一個敵人...'
+  },
+  { 
+    id: 2, 
+    name: '第二關：地下拳王', 
+    boss: '地下格鬥王',
+    bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
+    description: '地下格鬥場的燈光閃爍，強敵等待著你...'
+  },
+  { 
+    id: 3, 
+    name: '第三關：暗影之王', 
+    boss: '暗影領主',
+    bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
+    description: '最終戰！城市的命運就在你的手中...'
+  }
 ];
 
-const STAGES = [
-  { id: 'dojo', name: '道場', bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { id: 'forest', name: '森林', bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-  { id: 'temple', name: '神廟', bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
-  { id: 'mountain', name: '山脈', bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' }
+const OPENING_SCENES = [
+  '夜晚的城市被黑暗籠罩...',
+  '罪惡在街頭蔓延...',
+  '只有一位英雄能拯救這座城市...',
+  '你就是那位英雄！'
 ];
 
 const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
-    round: 1,
-    player1Wins: 0,
-    player2Wins: 0,
-    gamePhase: 'menu',
-    isPaused: false
+    battleRound: 1,
+    battleWins: 0,
+    battleLosses: 0,
+    currentLevel: 1,
+    gamePhase: 'cover',
+    isPaused: false,
+    playerPhoto: null
   });
 
-  const [selectedCharacter, setSelectedCharacter] = useState<string>('');
-  const [selectedStage, setSelectedStage] = useState<string>('');
+  const [openingStep, setOpeningStep] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [player1, setPlayer1] = useState<Character>({
     id: 'player1',
     name: '玩家',
@@ -85,9 +105,26 @@ const FightingGame: React.FC = () => {
   const gameLoopRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Opening animation effect
+  useEffect(() => {
+    if (gameState.gamePhase === 'opening-animation') {
+      const interval = setInterval(() => {
+        setOpeningStep(prev => {
+          if (prev < OPENING_SCENES.length - 1) {
+            return prev + 1;
+          } else {
+            setGameState(current => ({ ...current, gamePhase: 'character-setup' }));
+            return prev;
+          }
+        });
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [gameState.gamePhase]);
+
   // Game timer
   useEffect(() => {
-    if (gameState.gamePhase === 'fighting' && !gameState.isPaused && gameState.timeLeft > 0) {
+    if (gameState.gamePhase === 'level-battle' && !gameState.isPaused && gameState.timeLeft > 0) {
       const timer = setInterval(() => {
         setGameState(prev => ({ ...prev, timeLeft: prev.timeLeft - 1 }));
       }, 1000);
@@ -95,17 +132,31 @@ const FightingGame: React.FC = () => {
     }
   }, [gameState.gamePhase, gameState.isPaused, gameState.timeLeft]);
 
-  // Round end check
+  // Battle end check
   useEffect(() => {
     if (gameState.timeLeft === 0 || player1.health <= 0 || player2.health <= 0) {
-      handleRoundEnd();
+      handleBattleEnd();
     }
   }, [gameState.timeLeft, player1.health, player2.health]);
 
-  // Keyboard controls
+  // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameState.gamePhase !== 'fighting' || gameState.isPaused) return;
+      if (gameState.gamePhase === 'cover') {
+        startOpeningAnimation();
+      }
+    };
+
+    if (gameState.gamePhase === 'cover') {
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [gameState.gamePhase]);
+
+  // Battle controls
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
       
       switch (e.key.toLowerCase()) {
         case 'a':
@@ -138,7 +189,7 @@ const FightingGame: React.FC = () => {
 
   // AI Logic
   useEffect(() => {
-    if (gameState.gamePhase === 'fighting' && !gameState.isPaused) {
+    if (gameState.gamePhase === 'level-battle' && !gameState.isPaused) {
       const aiInterval = setInterval(() => {
         aiAction();
       }, 1000 + Math.random() * 1000);
@@ -296,69 +347,106 @@ const FightingGame: React.FC = () => {
     }, 1000);
   };
 
-  const handleRoundEnd = () => {
+  const handleBattleEnd = () => {
     let winner = '';
     if (player1.health > player2.health) {
-      setGameState(prev => ({ ...prev, player1Wins: prev.player1Wins + 1 }));
+      setGameState(prev => ({ ...prev, battleWins: prev.battleWins + 1 }));
       winner = 'player1';
     } else {
-      setGameState(prev => ({ ...prev, player2Wins: prev.player2Wins + 1 }));
+      setGameState(prev => ({ ...prev, battleLosses: prev.battleLosses + 1 }));
       winner = 'player2';
     }
 
-    if (gameState.player1Wins === 2 || gameState.player2Wins === 2) {
-      setGameState(prev => ({ ...prev, gamePhase: 'game-over' }));
-      setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'death' }));
-      setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'death' }));
-      addEffect('ko', 400, 200);
+    // Check if level is complete (3 wins out of 5 battles, so need 3 wins)
+    if (gameState.battleWins === 3) {
+      // Level complete, move to next level or ending
+      if (gameState.currentLevel === 3) {
+        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation' }));
+      } else {
+        setTimeout(() => {
+          setGameState(prev => ({ 
+            ...prev, 
+            currentLevel: prev.currentLevel + 1,
+            battleWins: 0,
+            battleLosses: 0,
+            battleRound: 1,
+            timeLeft: 60 
+          }));
+          resetPlayersForNewBattle();
+        }, 3000);
+      }
+    } else if (gameState.battleLosses === 3) {
+      // Game over - player lost
+      setGameState(prev => ({ ...prev, gamePhase: 'game-complete' }));
     } else {
-      // Next round
+      // Next battle in current level
       setTimeout(() => {
         setGameState(prev => ({ 
           ...prev, 
-          round: prev.round + 1, 
+          battleRound: prev.battleRound + 1, 
           timeLeft: 60 
         }));
-        setPlayer1(prev => ({ 
-          ...prev, 
-          health: 100, 
-          energy: 100, 
-          position: { x: 200, y: 300 },
-          state: 'idle'
-        }));
-        setPlayer2(prev => ({ 
-          ...prev, 
-          health: 100, 
-          energy: 100, 
-          position: { x: 600, y: 300 },
-          state: 'idle'
-        }));
+        resetPlayersForNewBattle();
       }, 2000);
+    }
+    
+    setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'death' }));
+    setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'death' }));
+    addEffect('ko', 400, 200);
+  };
+
+  const resetPlayersForNewBattle = () => {
+    setPlayer1(prev => ({ 
+      ...prev, 
+      health: 100, 
+      energy: 100, 
+      position: { x: 200, y: 300 },
+      state: 'idle'
+    }));
+    setPlayer2(prev => ({ 
+      ...prev, 
+      health: 100, 
+      energy: 100, 
+      position: { x: 600, y: 300 },
+      state: 'idle'
+    }));
+  };
+
+  const startOpeningAnimation = () => {
+    setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
+    setOpeningStep(0);
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setGameState(prev => ({ ...prev, playerPhoto: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const startGame = () => {
-    setGameState(prev => ({ ...prev, gamePhase: 'character-select' }));
-  };
-
-  const selectCharacter = (characterId: string) => {
-    setSelectedCharacter(characterId);
-    setGameState(prev => ({ ...prev, gamePhase: 'stage-select' }));
-  };
-
-  const selectStage = (stageId: string) => {
-    setSelectedStage(stageId);
-    setGameState(prev => ({ ...prev, gamePhase: 'fighting', timeLeft: 60 }));
+  const startFirstLevel = () => {
+    setGameState(prev => ({ 
+      ...prev, 
+      gamePhase: 'level-battle',
+      currentLevel: 1,
+      timeLeft: 60 
+    }));
   };
 
   const resetGame = () => {
     setGameState({
       timeLeft: 60,
-      round: 1,
-      player1Wins: 0,
-      player2Wins: 0,
-      gamePhase: 'menu',
-      isPaused: false
+      battleRound: 1,
+      battleWins: 0,
+      battleLosses: 0,
+      currentLevel: 1,
+      gamePhase: 'cover',
+      isPaused: false,
+      playerPhoto: null
     });
     setPlayer1(prev => ({ 
       ...prev, 
@@ -374,96 +462,203 @@ const FightingGame: React.FC = () => {
       position: { x: 600, y: 300 },
       state: 'idle'
     }));
-    setSelectedCharacter('');
-    setSelectedStage('');
+    setOpeningStep(0);
   };
 
-  if (gameState.gamePhase === 'menu') {
+  // 1. Cover Screen
+  if (gameState.gamePhase === 'cover') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-        <Card className="p-8 text-center bg-black/50 backdrop-blur border-purple-500">
-          <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-red-500 to-yellow-500 bg-clip-text text-transparent">
+      <div 
+        className="min-h-screen relative flex items-center justify-center cursor-pointer animate-pulse"
+        style={{ 
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 30%, #16213e 70%, #0f0f23 100%)',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='30'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}
+        onClick={startOpeningAnimation}
+      >
+        {/* City skyline silhouette */}
+        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black via-gray-900 to-transparent opacity-90">
+          <div className="absolute bottom-0 w-full h-32 bg-black opacity-60"></div>
+        </div>
+        
+        {/* Hero silhouette */}
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
+          <div className="w-32 h-40 bg-gradient-to-b from-gray-800 to-black rounded-t-full opacity-80 relative">
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-gray-700 rounded-full"></div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-20 bg-red-900 opacity-70 rounded-b-lg"></div>
+          </div>
+        </div>
+
+        <div className="text-center z-10">
+          <h1 className="text-7xl font-bold mb-8 bg-gradient-to-r from-red-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent animate-pulse">
             SHADOW STRIKE DUEL
           </h1>
-          <p className="text-xl text-white mb-8">究極格鬥遊戲</p>
-          <Button 
-            onClick={startGame}
-            className="text-2xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
-          >
-            開始遊戲
-          </Button>
-        </Card>
+          <p className="text-3xl text-white mb-12 animate-bounce">點擊任意鍵開始</p>
+          <div className="text-lg text-gray-300">城市需要英雄...</div>
+        </div>
+
+        {/* Floating particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-yellow-400 rounded-full animate-ping"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random() * 2}s`
+              }}
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (gameState.gamePhase === 'character-select') {
+  // 2. Opening Animation
+  if (gameState.gamePhase === 'opening-animation') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-        <Card className="p-8 bg-black/50 backdrop-blur border-purple-500">
-          <h2 className="text-4xl font-bold mb-6 text-center text-white">選擇角色</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {CHARACTERS.map(char => (
-              <Button
-                key={char.id}
-                onClick={() => selectCharacter(char.id)}
-                className="h-24 text-lg font-bold"
-                style={{ backgroundColor: char.color }}
-              >
-                {char.name}
-              </Button>
-            ))}
+      <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden">
+        <div className="text-center z-10">
+          <div className="text-4xl text-white mb-8 animate-fade-in">
+            {OPENING_SCENES[openingStep]}
           </div>
-        </Card>
-      </div>
-    );
-  }
-
-  if (gameState.gamePhase === 'stage-select') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-        <Card className="p-8 bg-black/50 backdrop-blur border-purple-500">
-          <h2 className="text-4xl font-bold mb-6 text-center text-white">選擇戰鬥場景</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {STAGES.map(stage => (
-              <Button
-                key={stage.id}
-                onClick={() => selectStage(stage.id)}
-                className="h-24 text-lg font-bold relative overflow-hidden"
-                style={{ background: stage.bg }}
-              >
-                {stage.name}
-              </Button>
-            ))}
+          <div className="w-64 h-2 bg-gray-700 rounded-full mx-auto">
+            <div 
+              className="h-full bg-gradient-to-r from-red-500 to-yellow-500 rounded-full transition-all duration-300"
+              style={{ width: `${((openingStep + 1) / OPENING_SCENES.length) * 100}%` }}
+            />
           </div>
+        </div>
+        
+        {/* Cinematic bars */}
+        <div className="absolute top-0 left-0 right-0 h-16 bg-black z-20"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-black z-20"></div>
+      </div>
+    );
+  }
+
+  // 3. Character Setup
+  if (gameState.gamePhase === 'character-setup') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+        <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
+          <h2 className="text-4xl font-bold mb-6 text-center text-white">角色設定</h2>
+          
+          <div className="text-center mb-6">
+            <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 border-4 border-blue-500 relative overflow-hidden">
+              {gameState.playerPhoto ? (
+                <img src={gameState.playerPhoto} alt="Player" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  <Upload size={40} />
+                </div>
+              )}
+            </div>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              className="mb-4 bg-blue-600 hover:bg-blue-700"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              上傳大頭照
+            </Button>
+            
+            <p className="text-sm text-gray-300 mb-6">
+              上傳你的照片，成為城市的英雄！
+            </p>
+          </div>
+
+          {gameState.playerPhoto && (
+            <div className="text-center">
+              <Button
+                onClick={startFirstLevel}
+                className="text-xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+              >
+                開始冒險
+              </Button>
+            </div>
+          )}
         </Card>
       </div>
     );
   }
 
-  if (gameState.gamePhase === 'game-over') {
-    const winner = gameState.player1Wins > gameState.player2Wins ? '玩家' : 'AI';
+  // 6. Ending Animation
+  if (gameState.gamePhase === 'ending-animation') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-        <Card className="p-8 text-center bg-black/50 backdrop-blur border-purple-500">
-          <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
-            {winner} 勝利！
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-200 via-orange-300 to-red-400 relative overflow-hidden">
+        <div className="text-center z-10 animate-fade-in">
+          <h1 className="text-6xl font-bold mb-8 text-white drop-shadow-lg">
+            城市拯救成功！
           </h1>
+          <div className="w-48 h-48 mx-auto mb-6 rounded-full bg-gradient-to-b from-yellow-400 to-orange-500 border-8 border-white relative overflow-hidden animate-scale-in">
+            {gameState.playerPhoto ? (
+              <img src={gameState.playerPhoto} alt="Hero" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white text-6xl">😊</div>
+            )}
+          </div>
+          <p className="text-2xl text-white mb-8 drop-shadow">光明重新照耀這座城市</p>
+          
+          <Button
+            onClick={() => setGameState(prev => ({ ...prev, gamePhase: 'game-complete' }))}
+            className="text-xl px-8 py-4 bg-white text-orange-600 hover:bg-gray-100"
+          >
+            繼續
+          </Button>
+        </div>
+
+        {/* Light rays */}
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 bg-gradient-to-t from-transparent via-yellow-300 to-transparent opacity-60 animate-pulse"
+            style={{
+              height: '120vh',
+              left: `${(i * 8.33)}%`,
+              transform: `rotate(${i * 30}deg)`,
+              transformOrigin: 'center bottom',
+              animationDelay: `${i * 0.2}s`
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // 7. Game Complete
+  if (gameState.gamePhase === 'game-complete') {
+    const isVictory = gameState.currentLevel > 3 || gameState.battleWins === 3;
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${isVictory ? 'bg-gradient-to-br from-green-400 via-blue-500 to-purple-600' : 'bg-gradient-to-br from-gray-800 via-red-900 to-black'}`}>
+        <Card className="p-8 text-center bg-black/70 backdrop-blur border-white/30 max-w-lg">
+          <h1 className={`text-6xl font-bold mb-4 ${isVictory ? 'text-yellow-400' : 'text-red-400'}`}>
+            {isVictory ? '你拯救了城市！' : '遊戲結束'}
+          </h1>
+          
           <p className="text-2xl text-white mb-8">
-            最終戰績: {gameState.player1Wins} - {gameState.player2Wins}
+            {isVictory 
+              ? '你成功擊敗了所有的敵人，城市再次恢復和平。' 
+              : '雖然失敗了，但你的勇氣值得敬佩。'}
           </p>
-          <div className="space-x-4">
+          
+          <div className="space-y-4">
             <Button 
               onClick={resetGame}
-              className="text-xl px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600"
+              className="w-full text-xl px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              重新開始
-            </Button>
-            <Button 
-              onClick={() => setGameState(prev => ({ ...prev, gamePhase: 'menu' }))}
-              className="text-xl px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700"
-            >
-              回到主選單
+              <RotateCcw className="mr-2 h-5 w-5" />
+              重新開始遊戲
             </Button>
           </div>
         </Card>
@@ -471,14 +666,15 @@ const FightingGame: React.FC = () => {
     );
   }
 
-  const selectedStageData = STAGES.find(s => s.id === selectedStage);
-
+  // 5. Level Battle
+  const currentLevelData = LEVELS[gameState.currentLevel - 1];
+  
   return (
     <div 
       className="min-h-screen relative overflow-hidden"
-      style={{ background: selectedStageData?.bg || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+      style={{ background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)' }}
     >
-      {/* Game UI */}
+      {/* Level Battle UI */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-4">
@@ -489,15 +685,18 @@ const FightingGame: React.FC = () => {
             >
               {gameState.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </Button>
-            <div className="text-white font-bold">第 {gameState.round} 回合</div>
+            <div className="text-white font-bold text-lg">
+              {currentLevelData?.name}
+            </div>
+            <div className="text-white font-bold">第 {gameState.battleRound} 戰</div>
           </div>
           
           <div className="text-4xl font-bold text-white bg-black/50 px-4 py-2 rounded">
             {gameState.timeLeft}
           </div>
           
-          <div className="text-white font-bold">
-            {gameState.player1Wins} - {gameState.player2Wins}
+          <div className="text-white font-bold text-lg">
+            勝: {gameState.battleWins} | 敗: {gameState.battleLosses}
           </div>
         </div>
 
