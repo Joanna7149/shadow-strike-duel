@@ -14,42 +14,40 @@ interface Character {
   maxEnergy: number;
   position: { x: number; y: number };
   facing: 'left' | 'right';
-  state: 'idle' | 'moving' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'combo' | 'special' | 'victory' | 'death';
+  state: 'idle' | 'moving' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'combo' | 'special' | 'victory' | 'death' | 'jump' | 'kick';
   comboCount: number;
 }
 
 interface GameState {
   timeLeft: number;
-  battleRound: number;
-  battleWins: number;
-  battleLosses: number;
   currentLevel: number;
   gamePhase: 'cover' | 'opening-animation' | 'character-setup' | 'level-battle' | 'ending-animation' | 'game-complete';
   isPaused: boolean;
   playerPhoto: string | null;
+  lastResult?: 'win' | 'lose' | null;
 }
 
 const LEVELS = [
   { 
     id: 1, 
-    name: '第一關：街頭霸主', 
-    boss: '混混老大',
+    name: '第一關: 燃燒倉庫 火爆拳', 
+    boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
-    description: '在黑暗的小巷中，你遇到了第一個敵人...'
+    description: '在燃燒的倉庫中，你遇到了火爆拳...'
   },
   { 
     id: 2, 
-    name: '第二關：地下拳王', 
-    boss: '地下格鬥王',
+    name: '第二關: 廢棄月台 蛇鞭女', 
+    boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
-    description: '地下格鬥場的燈光閃爍，強敵等待著你...'
+    description: '廢棄的月台上，蛇鞭女正等著你...'
   },
   { 
     id: 3, 
-    name: '第三關：暗影之王', 
-    boss: '暗影領主',
+    name: '第三關: 虛空之塔 心控王', 
+    boss: '心控王',
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
-    description: '最終戰！城市的命運就在你的手中...'
+    description: '最終戰！虛空之塔的心控王現身...'
   }
 ];
 
@@ -63,13 +61,11 @@ const OPENING_SCENES = [
 const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
-    battleRound: 1,
-    battleWins: 0,
-    battleLosses: 0,
     currentLevel: 1,
     gamePhase: 'cover',
     isPaused: false,
-    playerPhoto: null
+    playerPhoto: null,
+    lastResult: null
   });
 
   const [openingStep, setOpeningStep] = useState(0);
@@ -178,7 +174,13 @@ const FightingGame: React.FC = () => {
           comboAttack();
           break;
         case 'l':
+          kickPlayer();
+          break;
+        case 'i':
           specialAttack();
+          break;
+        case ' ':
+          jumpPlayer();
           break;
       }
     };
@@ -192,10 +194,10 @@ const FightingGame: React.FC = () => {
     if (gameState.gamePhase === 'level-battle' && !gameState.isPaused) {
       const aiInterval = setInterval(() => {
         aiAction();
-      }, 1000 + Math.random() * 1000);
+      }, 400 + Math.random() * 300); // 更頻繁
       return () => clearInterval(aiInterval);
     }
-  }, [gameState.gamePhase, gameState.isPaused]);
+  }, [gameState.gamePhase, gameState.isPaused, player1, player2]);
 
   const movePlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => ({
@@ -284,45 +286,43 @@ const FightingGame: React.FC = () => {
   };
 
   const aiAction = () => {
+    if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
     const distance = Math.abs(player2.position.x - player1.position.x);
     const action = Math.random();
-    
-    if (distance > 100) {
+
+    if (distance > 80) {
       // Move closer
       const direction = player2.position.x > player1.position.x ? 'left' : 'right';
       setPlayer2(prev => ({
         ...prev,
         position: {
           ...prev.position,
-          x: direction === 'left' ? Math.max(50, prev.position.x - 25) : Math.min(750, prev.position.x + 25)
+          x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(750, prev.position.x + 35)
         },
         facing: direction === 'left' ? 'left' : 'right',
         state: 'moving'
       }));
     } else {
-      // Combat actions
-      if (action < 0.3) {
+      // 更高機率攻擊
+      if (action < 0.8) {
         // Attack
         setPlayer2(prev => ({ ...prev, state: 'attacking' }));
         if (player1.state !== 'defending') {
           setPlayer1(prev => ({ 
             ...prev, 
-            health: Math.max(0, prev.health - 12),
+            health: Math.max(0, prev.health - 18),
             state: 'hit'
           }));
           addEffect('hit', player1.position.x, player1.position.y);
         }
-      } else if (action < 0.5) {
-        // Defend
-        setPlayer2(prev => ({ ...prev, state: 'defending' }));
-      } else if (action < 0.7 && player2.energy >= 30) {
+      } else if (action < 0.92 && player2.energy >= 30) {
         // Combo
         setPlayer2(prev => ({ 
           ...prev, 
           state: 'combo',
           energy: Math.max(0, prev.energy - 30)
         }));
-      } else if (action < 0.8 && player2.energy >= 50) {
+      } else if (action < 0.98 && player2.energy >= 50) {
         // Special
         setPlayer2(prev => ({ 
           ...prev, 
@@ -330,13 +330,14 @@ const FightingGame: React.FC = () => {
           energy: Math.max(0, prev.energy - 50)
         }));
         addEffect('special', player2.position.x, player2.position.y);
+      } else {
+        setPlayer2(prev => ({ ...prev, state: 'defending' }));
       }
     }
-    
     setTimeout(() => {
       setPlayer2(prev => ({ ...prev, state: 'idle' }));
       setPlayer1(prev => ({ ...prev, state: prev.health > 0 ? 'idle' : prev.state }));
-    }, 500);
+    }, 400);
   };
 
   const addEffect = (type: string, x: number, y: number) => {
@@ -347,52 +348,72 @@ const FightingGame: React.FC = () => {
     }, 1000);
   };
 
+  // 勝負提示 Modal
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultText, setResultText] = useState('');
+  const [resultType, setResultType] = useState<'win' | 'lose' | null>(null);
+
+  // 當 showResultModal 開啟時自動暫停，關閉時恢復
+  useEffect(() => {
+    if (showResultModal) {
+      setGameState(prev => ({ ...prev, isPaused: true }));
+    } else {
+      setGameState(prev => ({ ...prev, isPaused: false }));
+    }
+  }, [showResultModal]);
+
+  // 在 handleBattleEnd 顯示提示
   const handleBattleEnd = () => {
     let winner = '';
     if (player1.health > player2.health) {
-      setGameState(prev => ({ ...prev, battleWins: prev.battleWins + 1 }));
       winner = 'player1';
     } else {
-      setGameState(prev => ({ ...prev, battleLosses: prev.battleLosses + 1 }));
       winner = 'player2';
     }
 
-    // Check if level is complete (3 wins out of 5 battles, so need 3 wins)
-    if (gameState.battleWins === 3) {
-      // Level complete, move to next level or ending
-      if (gameState.currentLevel === 3) {
-        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation' }));
-      } else {
-        setTimeout(() => {
-          setGameState(prev => ({ 
-            ...prev, 
-            currentLevel: prev.currentLevel + 1,
-            battleWins: 0,
-            battleLosses: 0,
-            battleRound: 1,
-            timeLeft: 60 
-          }));
-          resetPlayersForNewBattle();
-        }, 3000);
-      }
-    } else if (gameState.battleLosses === 3) {
-      // Game over - player lost
-      setGameState(prev => ({ ...prev, gamePhase: 'game-complete' }));
-    } else {
-      // Next battle in current level
-      setTimeout(() => {
-        setGameState(prev => ({ 
-          ...prev, 
-          battleRound: prev.battleRound + 1, 
-          timeLeft: 60 
-        }));
-        resetPlayersForNewBattle();
-      }, 2000);
-    }
-    
     setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'death' }));
     setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'death' }));
     addEffect('ko', 400, 200);
+
+    setTimeout(() => {
+      if (winner === 'player1') {
+        setResultText('勝利！進入下一關');
+        setResultType('win');
+        setShowResultModal(true);
+      } else {
+        setResultText('失敗！再挑戰一次');
+        setResultType('lose');
+        setShowResultModal(true);
+      }
+    }, 800);
+  };
+
+  // 處理 Modal 按鈕
+  const handleResultModalClose = () => {
+    setShowResultModal(false);
+    if (resultType === 'win') {
+      // 只有在第三關勝利時才進入結局動畫
+      if (gameState.currentLevel === 3 && gameState.gamePhase === 'level-battle') {
+        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation', lastResult: 'win' }));
+      } else {
+        setGameState(prev => ({
+          ...prev,
+          currentLevel: prev.currentLevel + 1,
+          timeLeft: 60,
+          gamePhase: 'level-battle',
+          lastResult: 'win'
+        }));
+        resetPlayersForNewBattle();
+      }
+    } else {
+      setGameState(prev => ({
+        ...prev,
+        timeLeft: 60,
+        gamePhase: 'level-battle',
+        lastResult: 'lose'
+      }));
+      resetPlayersForNewBattle();
+    }
   };
 
   const resetPlayersForNewBattle = () => {
@@ -440,13 +461,11 @@ const FightingGame: React.FC = () => {
   const resetGame = () => {
     setGameState({
       timeLeft: 60,
-      battleRound: 1,
-      battleWins: 0,
-      battleLosses: 0,
       currentLevel: 1,
       gamePhase: 'cover',
       isPaused: false,
-      playerPhoto: null
+      playerPhoto: null,
+      lastResult: null
     });
     setPlayer1(prev => ({ 
       ...prev, 
@@ -463,6 +482,27 @@ const FightingGame: React.FC = () => {
       state: 'idle'
     }));
     setOpeningStep(0);
+  };
+
+  // 新增跳躍與踢的函式
+  const jumpPlayer = () => {
+    setPlayer1(prev => ({ ...prev, state: 'jump' }));
+    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 600);
+  };
+  const kickPlayer = () => {
+    if (Math.abs(player1.position.x - player2.position.x) < 80) {
+      setPlayer1(prev => ({ ...prev, state: 'kick' }));
+      if (player2.state !== 'defending') {
+        setPlayer2(prev => ({ 
+          ...prev, 
+          health: Math.max(0, prev.health - 18),
+          state: 'hit'
+        }));
+        addEffect('hit', player2.position.x, player2.position.y);
+      }
+      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+      setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
+    }
   };
 
   // 1. Cover Screen
@@ -599,7 +639,7 @@ const FightingGame: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-200 via-orange-300 to-red-400 relative overflow-hidden">
         <div className="text-center z-10 animate-fade-in">
           <h1 className="text-6xl font-bold mb-8 text-white drop-shadow-lg">
-            城市拯救成功！
+            {gameState.lastResult === 'win' ? '城市拯救成功！' : '遊戲結束'}
           </h1>
           <div className="w-48 h-48 mx-auto mb-6 rounded-full bg-gradient-to-b from-yellow-400 to-orange-500 border-8 border-white relative overflow-hidden animate-scale-in">
             {gameState.playerPhoto ? (
@@ -608,7 +648,9 @@ const FightingGame: React.FC = () => {
               <div className="w-full h-full flex items-center justify-center text-white text-6xl">😊</div>
             )}
           </div>
-          <p className="text-2xl text-white mb-8 drop-shadow">光明重新照耀這座城市</p>
+          <p className="text-2xl text-white mb-8 drop-shadow">
+            {gameState.lastResult === 'win' ? '光明重新照耀這座城市' : '雖然失敗了，但你的勇氣值得敬佩。'}
+          </p>
           
           <Button
             onClick={() => setGameState(prev => ({ ...prev, gamePhase: 'game-complete' }))}
@@ -638,7 +680,7 @@ const FightingGame: React.FC = () => {
 
   // 7. Game Complete
   if (gameState.gamePhase === 'game-complete') {
-    const isVictory = gameState.currentLevel > 3 || gameState.battleWins === 3;
+    const isVictory = gameState.currentLevel > 3 || gameState.lastResult === 'win';
     return (
       <div className={`min-h-screen flex items-center justify-center ${isVictory ? 'bg-gradient-to-br from-green-400 via-blue-500 to-purple-600' : 'bg-gradient-to-br from-gray-800 via-red-900 to-black'}`}>
         <Card className="p-8 text-center bg-black/70 backdrop-blur border-white/30 max-w-lg">
@@ -688,30 +730,56 @@ const FightingGame: React.FC = () => {
             <div className="text-white font-bold text-lg">
               {currentLevelData?.name}
             </div>
-            <div className="text-white font-bold">第 {gameState.battleRound} 戰</div>
+            <div className="text-white font-bold">第 {gameState.currentLevel} 關</div>
           </div>
-          
-          <div className="text-4xl font-bold text-white bg-black/50 px-4 py-2 rounded">
-            {gameState.timeLeft}
-          </div>
-          
-          <div className="text-white font-bold text-lg">
-            勝: {gameState.battleWins} | 敗: {gameState.battleLosses}
-          </div>
+          {/* 右上方時間顯示已徹底移除 */}
         </div>
 
         {/* Health bars */}
         <div className="flex justify-between items-center mb-2">
-          <div className="w-1/3">
-            <div className="text-white font-bold mb-1">玩家</div>
-            <Progress value={(player1.health / player1.maxHealth) * 100} className="h-6" />
-            <Progress value={(player1.energy / player1.maxEnergy) * 100} className="h-2 mt-1" />
+          {/* 玩家血條與頭像 */}
+          <div className="w-1/3 flex items-center space-x-2">
+            <div className="w-14 h-14 rounded-full bg-gray-700 border-4 border-red-500 overflow-hidden flex-shrink-0">
+              {gameState.playerPhoto ? (
+                <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="text-white font-bold mb-1">玩家</div>
+              {/* 紅色血條 */}
+              <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
+                  style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
+                />
+              </div>
+              <Progress value={(player1.energy / player1.maxEnergy) * 100} className="h-2 mt-1" />
+            </div>
           </div>
-          
-          <div className="w-1/3 text-right">
-            <div className="text-white font-bold mb-1">AI</div>
-            <Progress value={(player2.health / player2.maxHealth) * 100} className="h-6" />
-            <Progress value={(player2.energy / player2.maxEnergy) * 100} className="h-2 mt-1" />
+          {/* 倒數計時器，置中顯示 */}
+          <div className="w-1/3 flex items-center justify-center">
+            <div className="text-3xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
+              {gameState.timeLeft}
+            </div>
+          </div>
+          {/* AI血條與頭像 */}
+          <div className="w-1/3 flex items-center space-x-2 justify-end">
+            <div className="flex-1 text-right">
+              <div className="text-white font-bold mb-1">AI</div>
+              {/* 紅色血條 */}
+              <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
+                  style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
+                />
+              </div>
+              <Progress value={(player2.energy / player2.maxEnergy) * 100} className="h-2 mt-1" />
+            </div>
+            <div className="w-14 h-14 rounded-full bg-gray-700 border-4 border-red-500 overflow-hidden flex-shrink-0 ml-2">
+              <div className="w-full h-full flex items-center justify-center text-white text-3xl">🤖</div>
+            </div>
           </div>
         </div>
       </div>
@@ -811,6 +879,10 @@ const FightingGame: React.FC = () => {
             <Button variant="outline" size="sm" className="bg-black/50 text-white">
               <Shield className="h-4 w-4" /> W
             </Button>
+            {/* 新增跳躍按鈕 */}
+            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => jumpPlayer && jumpPlayer()}>
+              跳躍 Space
+            </Button>
           </div>
           <div className="flex space-x-2">
             <Button variant="outline" size="sm" className="bg-black/50 text-white">
@@ -819,8 +891,12 @@ const FightingGame: React.FC = () => {
             <Button variant="outline" size="sm" className="bg-black/50 text-white">
               連擊 K
             </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              必殺 L
+            {/* 新增踢的按鈕 */}
+            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => kickPlayer && kickPlayer()}>
+              踢 L
+            </Button>
+            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => specialAttack && specialAttack()}>
+              必殺 I
             </Button>
           </div>
         </div>
@@ -837,6 +913,19 @@ const FightingGame: React.FC = () => {
               繼續遊戲
             </Button>
           </Card>
+        </div>
+      )}
+      {showResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+          <div className="bg-white rounded-lg shadow-lg p-10 text-center">
+            <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
+            <button
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
+              onClick={handleResultModalClose}
+            >
+              {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
+            </button>
+          </div>
         </div>
       )}
     </div>
