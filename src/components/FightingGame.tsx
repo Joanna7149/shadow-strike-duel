@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
+import mainHeroIdle from '../statics/characters/MainHero/animations/stand_idle/idle01.png';
+import textureAtlas from '../statics/characters/MainHero/animation/texture.png';
+import textureData from '../statics/characters/MainHero/animation/texture.json';
 
 interface Character {
   id: string;
@@ -14,8 +17,9 @@ interface Character {
   maxEnergy: number;
   position: { x: number; y: number };
   facing: 'left' | 'right';
-  state: 'idle' | 'moving' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'combo' | 'special' | 'victory' | 'death' | 'jump' | 'kick';
-  comboCount: number;
+  state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead';
+  hitBox: { x: number; y: number; width: number; height: number };
+  hurtBox: { x: number; y: number; width: number; height: number };
 }
 
 interface GameState {
@@ -58,6 +62,174 @@ const OPENING_SCENES = [
   '你就是那位英雄！'
 ];
 
+// isCollision 函式
+function isCollision(rect1: { x: number; y: number; width: number; height: number }, rect2: { x: number; y: number; width: number; height: number }) {
+  return (
+    rect1.x < rect2.x + rect2.width &&
+    rect1.x + rect1.width > rect2.x &&
+    rect1.y < rect2.y + rect2.height &&
+    rect1.y + rect1.height > rect2.y
+  );
+}
+// isFacingOpponent 判斷
+function isFacingOpponent(p1: Character, p2: Character) {
+  return (
+    (p1.facing === 'right' && p1.position.x < p2.position.x) ||
+    (p1.facing === 'left' && p1.position.x > p2.position.x)
+  );
+}
+
+// 動畫管理器
+class AnimationManager {
+  private textureAtlas: HTMLImageElement;
+  private textureData: any;
+  private animations: Map<string, any[]> = new Map();
+  private currentAnimation: string = 'idle';
+  private currentFrame: number = 0;
+  private frameTime: number = 0;
+  private frameDuration: number = 100; // 0.1秒 = 100ms
+
+  constructor(atlasSrc: string, data: any) {
+    this.textureData = data;
+    this.textureAtlas = new Image();
+    this.textureAtlas.src = atlasSrc;
+    this.loadAnimations();
+  }
+
+  private loadAnimations() {
+    const frames = this.textureData.frames;
+    const animationStates = [
+      'idle', 'crouch', 'crouch_kick', 'crouch_punch', 'defend', 'hit', 
+      'kick', 'punch', 'jump', 'jump_kick', 'jump_punch', 'walk', 
+      'special_attack', 'win_round', 'dead'
+    ];
+
+    animationStates.forEach(state => {
+      const stateFrames = [];
+      let frameIndex = 1;
+      while (true) {
+        const frameName = `逐格/${state}/${frameIndex}.png`;
+        if (frames[frameName]) {
+          stateFrames.push({
+            name: frameName,
+            ...frames[frameName]
+          });
+          frameIndex++;
+        } else {
+          break;
+        }
+      }
+      if (stateFrames.length > 0) {
+        this.animations.set(state, stateFrames);
+      }
+    });
+  }
+
+  setAnimation(animationName: string) {
+    if (this.currentAnimation !== animationName && this.animations.has(animationName)) {
+      this.currentAnimation = animationName;
+      this.currentFrame = 0;
+      this.frameTime = 0;
+    }
+  }
+
+  update(deltaTime: number) {
+    this.frameTime += deltaTime;
+    if (this.frameTime >= this.frameDuration) {
+      this.frameTime = 0;
+      const currentAnim = this.animations.get(this.currentAnimation);
+      if (currentAnim && currentAnim.length > 0) {
+        this.currentFrame = (this.currentFrame + 1) % currentAnim.length;
+      }
+    }
+  }
+
+  getCurrentFrame() {
+    const currentAnim = this.animations.get(this.currentAnimation);
+    if (currentAnim && currentAnim.length > 0) {
+      return currentAnim[this.currentFrame];
+    }
+    return null;
+  }
+
+  isAtlasLoaded() {
+    return this.textureAtlas.complete;
+  }
+}
+
+// 角色精靈組件
+const CharacterSprite: React.FC<{
+  animationManager: AnimationManager;
+  facing: 'left' | 'right';
+  state: string;
+  position: { x: number; y: number };
+  width: number;
+  height: number;
+  isPlayer1?: boolean;
+}> = ({ animationManager, facing, state, position, width, height, isPlayer1 = false }) => {
+  const [deltaTime, setDeltaTime] = useState(0);
+  const lastTimeRef = useRef(performance.now());
+
+  useEffect(() => {
+    const animate = (currentTime: number) => {
+      const delta = currentTime - lastTimeRef.current;
+      lastTimeRef.current = currentTime;
+      setDeltaTime(delta);
+      requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, []);
+
+  useEffect(() => {
+    animationManager.setAnimation(state);
+  }, [state, animationManager]);
+
+  useEffect(() => {
+    animationManager.update(deltaTime);
+  }, [deltaTime, animationManager]);
+
+  const frame = animationManager.getCurrentFrame();
+  if (!frame || !animationManager.isAtlasLoaded()) {
+    return (
+      <div style={{
+        width: width,
+        height: height,
+        background: '#222',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        載入中...
+      </div>
+    );
+  }
+
+  const { frame: frameData } = frame;
+  // Player 1 的 scaleX 邏輯反轉
+  const scaleX = isPlayer1 
+    ? (facing === 'right' ? -1 : 1)
+    : (facing === 'left' ? -1 : 1);
+
+  return (
+    <div style={{
+      width: width,
+      height: height,
+      overflow: 'hidden',
+      transform: `scaleX(${scaleX})`
+    }}>
+      <div style={{
+        width: frameData.w,
+        height: frameData.h,
+        backgroundImage: `url(${textureAtlas})`,
+        backgroundPosition: `-${frameData.x}px -${frameData.y}px`,
+        transform: 'scale(0.9)', // 縮放以符合角色尺寸
+        transformOrigin: 'center center'
+      }} />
+    </div>
+  );
+};
+
 const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
@@ -71,17 +243,20 @@ const FightingGame: React.FC = () => {
   const [openingStep, setOpeningStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 1. 玩家初始 energy=0
   const [player1, setPlayer1] = useState<Character>({
     id: 'player1',
     name: '玩家',
     health: 100,
     maxHealth: 100,
-    energy: 100,
+    energy: 0, // 初始為0
     maxEnergy: 100,
-    position: { x: 200, y: 300 },
+    // 初始位置設為畫面 10% 處，避免超出
+    position: { x: window.innerWidth * 0.1, y: 0 },
     facing: 'right',
     state: 'idle',
-    comboCount: 0
+    hitBox: { x: 200, y: 300, width: 40, height: 60 },
+    hurtBox: { x: 200, y: 300, width: 40, height: 60 }
   });
 
   const [player2, setPlayer2] = useState<Character>({
@@ -91,15 +266,22 @@ const FightingGame: React.FC = () => {
     maxHealth: 100,
     energy: 100,
     maxEnergy: 100,
-    position: { x: 600, y: 300 },
+    // 初始位置設為畫面 90% 處，避免超出
+    position: { x: window.innerWidth * 0.9, y: 0 },
     facing: 'left',
     state: 'idle',
-    comboCount: 0
+    hitBox: { x: 600, y: 300, width: 40, height: 60 },
+    hurtBox: { x: 600, y: 300, width: 40, height: 60 }
   });
 
   const [effects, setEffects] = useState<Array<{id: string, type: string, x: number, y: number}>>([]);
   const gameLoopRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
+  const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
+
+  const [player1AnimationManager] = useState(() => new AnimationManager(textureAtlas, textureData));
+  const [player2AnimationManager] = useState(() => new AnimationManager(textureAtlas, textureData));
 
   // Opening animation effect
   useEffect(() => {
@@ -151,10 +333,114 @@ const FightingGame: React.FC = () => {
 
   // Battle controls
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
-      
-      switch (e.key.toLowerCase()) {
+      const key = e.key.toLowerCase();
+      setPressedKeys(prev => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+      // 更新 keyBuffer
+      keyBufferRef.current.push({ key, time: Date.now() });
+      if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
+
+      // 跳躍中攻擊判斷
+      if (player1.state === 'jump') {
+        if (key === 'j') {
+          setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
+          // 命中判斷
+          const hitBox = getAttackHitBox(player1, player1.facing);
+          const hurtBox = getHurtBox(player2);
+          if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+            setPlayer2(prev => ({
+              ...prev,
+              health: Math.max(0, prev.health - 25),
+              state: 'hit'
+            }));
+            setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+            addEffect('hit', player2.position.x, player2.position.y);
+          }
+          setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'jump' })), 400);
+          return;
+        }
+        if (key === 'k') {
+          setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
+          // 命中判斷
+          const hitBox = getAttackHitBox(player1, player1.facing);
+          const hurtBox = getHurtBox(player2);
+          if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+            setPlayer2(prev => ({
+              ...prev,
+              health: Math.max(0, prev.health - 25),
+              state: 'hit'
+            }));
+            setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+            addEffect('hit', player2.position.x, player2.position.y);
+          }
+          setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'jump' })), 400);
+          return;
+        }
+      }
+
+      // 組合鍵偵測
+      const keys = new Set(pressedKeys);
+      keys.add(key);
+      // handleKeyDown 組合鍵偵測區
+      // 跳躍攻擊
+      if (keys.has('w') && keys.has('j')) {
+        jumpAttack('punch');
+        return;
+      }
+      if (keys.has('w') && keys.has('k')) {
+        jumpAttack('kick');
+        return;
+      }
+      if (keys.has('w') && keys.has('l')) {
+        jumpAttack('special');
+        return;
+      }
+      // 蹲下攻擊
+      if (keys.has('s') && keys.has('j')) {
+        crouchAttack('punch');
+        return;
+      }
+      if (keys.has('s') && keys.has('k')) {
+        crouchAttack('kick');
+        return;
+      }
+      // 左跳/右跳
+      if (keys.has('a') && keys.has('w')) {
+        jumpPlayer();
+        return;
+      }
+      if (keys.has('d') && keys.has('w')) {
+        jumpPlayer();
+        return;
+      }
+      // D+D dash
+      if (key === 'd') {
+        const now = Date.now();
+        const recentDs = keyBufferRef.current.filter(
+          k => k.key === 'd' && now - k.time < 300
+        );
+        if (recentDs.length >= 2) {
+          dashPlayer('right');
+          return;
+        }
+      }
+      if (key === 'a') {
+        const now = Date.now();
+        const recentAs = keyBufferRef.current.filter(
+          k => k.key === 'a' && now - k.time < 300
+        );
+        if (recentAs.length >= 2) {
+          dashPlayer('left');
+          return;
+        }
+      }
+      // 單鍵行為
+      switch (key) {
         case 'a':
           movePlayer('left');
           break;
@@ -162,32 +448,37 @@ const FightingGame: React.FC = () => {
           movePlayer('right');
           break;
         case 's':
-          setPlayer1(prev => ({ ...prev, state: 'crouching' }));
+          setPlayer1(prev => ({ ...prev, state: 'crouch' }));
           break;
         case 'w':
-          defendPlayer();
+          jumpPlayer();
           break;
         case 'j':
           attackPlayer();
           break;
         case 'k':
-          comboAttack();
-          break;
-        case 'l':
           kickPlayer();
           break;
-        case 'i':
+        case 'l':
           specialAttack();
-          break;
-        case ' ':
-          jumpPlayer();
           break;
       }
     };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState, player1]);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      setPressedKeys(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameState, player1, pressedKeys]);
 
   // AI Logic
   useEffect(() => {
@@ -199,17 +490,71 @@ const FightingGame: React.FC = () => {
     }
   }, [gameState.gamePhase, gameState.isPaused, player1, player2]);
 
+  // 角色尺寸常數
+  const CHARACTER_WIDTH = 200;
+  const CHARACTER_HEIGHT = 500;
+
+  // 新的碰撞判斷工具
+  function getAttackHitBox(attacker: Character, facing: 'left' | 'right') {
+    // attacker.position.x, attacker.position.y
+    // 向右：x+CHARACTER_WIDTH，向左：x-100
+    return {
+      x: facing === 'right' ? attacker.position.x + CHARACTER_WIDTH : attacker.position.x - 100,
+      y: attacker.position.y,
+      width: 100,
+      height: CHARACTER_HEIGHT
+    };
+  }
+  function getHurtBox(target: Character) {
+    return {
+      x: target.position.x,
+      y: target.position.y,
+      width: CHARACTER_WIDTH,
+      height: CHARACTER_HEIGHT
+    };
+  }
+
   const movePlayer = (direction: 'left' | 'right') => {
-    setPlayer1(prev => ({
-      ...prev,
-      position: {
-        ...prev.position,
-        x: direction === 'left' ? Math.max(50, prev.position.x - 30) : Math.min(750, prev.position.x + 30)
-      },
-      facing: direction,
-      state: 'moving'
-    }));
+    setPlayer1(prev => {
+      // 取得舞台寬度
+      const stageWidth = window.innerWidth;
+      const minX = stageWidth * 0.02;
+      const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+      let newX = prev.position.x + (direction === 'left' ? -30 : 30);
+      newX = Math.max(minX, Math.min(maxX, newX));
+      return {
+        ...prev,
+        position: {
+          ...prev.position,
+          x: newX
+        },
+        facing: direction,
+        state: 'walk'
+      };
+    });
     setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
+  };
+
+  // Dash (前衝/後衝)
+  const dashPlayer = (direction: 'left' | 'right') => {
+    setPlayer1(prev => {
+      const stageWidth = window.innerWidth;
+      const minX = stageWidth * 0.02;
+      const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+      let newX = prev.position.x + (direction === 'left' ? -100 : 100);
+      newX = Math.max(minX, Math.min(maxX, newX));
+      addEffect('dash', newX, prev.position.y);
+      return {
+        ...prev,
+        position: {
+          ...prev.position,
+          x: newX
+        },
+        facing: direction,
+        state: 'walk'
+      };
+    });
+    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 200);
   };
 
   const defendPlayer = () => {
@@ -217,64 +562,45 @@ const FightingGame: React.FC = () => {
     setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 500);
   };
 
+  // 在 attackPlayer、comboAttack、kickPlayer、specialAttack 等攻擊函式中，若 player1 正在 movePlayer('left') 或 movePlayer('right') 且是遠離 AI，則自動進入防禦狀態。
+  // 這裡以 attackPlayer 為例，其他攻擊函式可依此類推。
+  // 2. 只有攻擊命中對手時才加能量，不能超過 maxEnergy
   const attackPlayer = () => {
-    if (Math.abs(player1.position.x - player2.position.x) < 80) {
-      setPlayer1(prev => ({ ...prev, state: 'attacking' }));
-      if (player2.state !== 'defending') {
-        setPlayer2(prev => ({ 
-          ...prev, 
-          health: Math.max(0, prev.health - 15),
-          state: 'hit'
-        }));
-        addEffect('hit', player2.position.x, player2.position.y);
-      }
-      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
-      setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
-    }
-  };
-
-  const comboAttack = () => {
-    if (Math.abs(player1.position.x - player2.position.x) < 80 && player1.energy >= 30) {
-      setPlayer1(prev => ({ 
-        ...prev, 
-        state: 'combo',
-        energy: Math.max(0, prev.energy - 30),
-        comboCount: 5
+    setPlayer1(prev => ({
+      ...prev,
+      state: 'punch'
+    }));
+    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+    // 命中判斷
+    const hitBox = getAttackHitBox(player1, player1.facing);
+    const hurtBox = getHurtBox(player2);
+    if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      setPlayer2(prev => ({
+        ...prev,
+        health: Math.max(0, prev.health - 15),
+        state: 'hit'
       }));
-      
-      let comboHits = 0;
-      const comboInterval = setInterval(() => {
-        if (comboHits < 5 && player2.state !== 'defending') {
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - 8),
-            state: 'hit'
-          }));
-          addEffect('combo', player2.position.x + (Math.random() - 0.5) * 40, player2.position.y + (Math.random() - 0.5) * 40);
-        }
-        comboHits++;
-        if (comboHits >= 5) {
-          clearInterval(comboInterval);
-          setPlayer1(prev => ({ ...prev, state: 'idle', comboCount: 0 }));
-          setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 300);
-        }
-      }, 200);
+      setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+      addEffect('hit', player2.position.x, player2.position.y);
     }
+    setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
   };
 
+  // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
   const specialAttack = () => {
-    if (player1.energy >= 50) {
-      setPlayer1(prev => ({ 
-        ...prev, 
+    if (player1.energy >= player1.maxEnergy) {
+      setPlayer1(prev => ({
+        ...prev,
         state: 'special',
-        energy: Math.max(0, prev.energy - 50)
+        energy: 0
       }));
-      addEffect('special', player1.position.x, player1.position.y);
-      
+      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 1000);
       setTimeout(() => {
-        if (Math.abs(player1.position.x - player2.position.x) < 150) {
-          setPlayer2(prev => ({ 
-            ...prev, 
+        const hitBox = getAttackHitBox(player1, player1.facing);
+        const hurtBox = getHurtBox(player2);
+        if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+          setPlayer2(prev => ({
+            ...prev,
             health: Math.max(0, prev.health - 35),
             state: 'hit'
           }));
@@ -300,7 +626,7 @@ const FightingGame: React.FC = () => {
           x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(750, prev.position.x + 35)
         },
         facing: direction === 'left' ? 'left' : 'right',
-        state: 'moving'
+        state: 'walk'
       }));
     } else {
       // 更高機率攻擊
@@ -313,15 +639,9 @@ const FightingGame: React.FC = () => {
             health: Math.max(0, prev.health - 18),
             state: 'hit'
           }));
+          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
           addEffect('hit', player1.position.x, player1.position.y);
         }
-      } else if (action < 0.92 && player2.energy >= 30) {
-        // Combo
-        setPlayer2(prev => ({ 
-          ...prev, 
-          state: 'combo',
-          energy: Math.max(0, prev.energy - 30)
-        }));
       } else if (action < 0.98 && player2.energy >= 50) {
         // Special
         setPlayer2(prev => ({ 
@@ -420,16 +740,20 @@ const FightingGame: React.FC = () => {
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
-      energy: 100, 
-      position: { x: 200, y: 300 },
-      state: 'idle'
+      energy: 0, // 歸零
+      position: { x: window.innerWidth * 0.1, y: 0 },
+      state: 'idle',
+      hitBox: { x: 200, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 200, y: 300, width: 40, height: 60 }
     }));
     setPlayer2(prev => ({ 
       ...prev, 
       health: 100, 
       energy: 100, 
-      position: { x: 600, y: 300 },
-      state: 'idle'
+      position: { x: window.innerWidth * 0.9, y: 0 },
+      state: 'idle',
+      hitBox: { x: 600, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 600, y: 300, width: 40, height: 60 }
     }));
   };
 
@@ -470,41 +794,141 @@ const FightingGame: React.FC = () => {
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
-      energy: 100, 
-      position: { x: 200, y: 300 },
-      state: 'idle'
+      energy: 0, // 歸零
+      position: { x: window.innerWidth * 0.1, y: 0 },
+      state: 'idle',
+      hitBox: { x: 200, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 200, y: 300, width: 40, height: 60 }
     }));
     setPlayer2(prev => ({ 
       ...prev, 
       health: 100, 
       energy: 100, 
-      position: { x: 600, y: 300 },
-      state: 'idle'
+      position: { x: window.innerWidth * 0.7, y: 0 },
+      state: 'idle',
+      hitBox: { x: 600, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 600, y: 300, width: 40, height: 60 }
     }));
     setOpeningStep(0);
   };
 
   // 新增跳躍與踢的函式
+  // 方向跳與原地跳邏輯
   const jumpPlayer = () => {
-    setPlayer1(prev => ({ ...prev, state: 'jump' }));
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 600);
+    if (player1.state === 'jump') return; // 避免連續觸發
+    const jumpHeight = 200;
+    const upTime = 500;
+    const downTime = 500;
+    // 判斷方向
+    let direction: 'left' | 'right' | 'none' = 'none';
+    if (pressedKeys.has('a') && !pressedKeys.has('d')) direction = 'left';
+    else if (pressedKeys.has('d') && !pressedKeys.has('a')) direction = 'right';
+    const stageWidth = window.innerWidth;
+    const minX = stageWidth * 0.02;
+    const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+    // 跳躍慣性距離
+    const jumpDistance = direction === 'left' ? -100 : direction === 'right' ? 100 : 0;
+    // 跳躍起點
+    const startX = player1.position.x;
+    const targetX = Math.max(minX, Math.min(maxX, startX + jumpDistance));
+    // 跳躍動畫
+    setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: startX, y: 0 } }));
+    setTimeout(() => {
+      setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
+      setTimeout(() => {
+        setPlayer1(prev => ({ ...prev, state: 'idle', position: { ...prev.position, x: targetX, y: 0 } }));
+      }, downTime);
+    }, upTime);
   };
   const kickPlayer = () => {
-    if (Math.abs(player1.position.x - player2.position.x) < 80) {
-      setPlayer1(prev => ({ ...prev, state: 'kick' }));
-      if (player2.state !== 'defending') {
-        setPlayer2(prev => ({ 
-          ...prev, 
-          health: Math.max(0, prev.health - 18),
-          state: 'hit'
-        }));
-        addEffect('hit', player2.position.x, player2.position.y);
-      }
-      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
-      setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
+    setPlayer1(prev => ({
+      ...prev,
+      state: 'kick'
+    }));
+    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+    // 命中判斷
+    const hitBox = getAttackHitBox(player1, player1.facing);
+    const hurtBox = getHurtBox(player2);
+    if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      setPlayer2(prev => ({
+        ...prev,
+        health: Math.max(0, prev.health - 18),
+        state: 'hit'
+      }));
+      setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+      addEffect('hit', player2.position.x, player2.position.y);
     }
+    setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
   };
 
+  // 新增組合攻擊函式
+  // 跳躍攻擊邏輯
+  const jumpAttack = (attackType: 'punch' | 'kick' | 'special') => {
+    if (attackType === 'special' && player1.energy < player1.maxEnergy) return;
+    const jumpHeight = 200;
+    const upTime = 500;
+    const downTime = 500;
+    // 判斷方向
+    let direction: 'left' | 'right' | 'none' = 'none';
+    if (pressedKeys.has('a') && !pressedKeys.has('d')) direction = 'left';
+    else if (pressedKeys.has('d') && !pressedKeys.has('a')) direction = 'right';
+    const stageWidth = window.innerWidth;
+    const minX = stageWidth * 0.02;
+    const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+    const jumpDistance = direction === 'left' ? -100 : direction === 'right' ? 100 : 0;
+    const startX = player1.position.x;
+    const targetX = Math.max(minX, Math.min(maxX, startX + jumpDistance));
+    // 跳躍動畫
+    setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: startX, y: 0 } }));
+    setTimeout(() => {
+      setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
+      // 空中攻擊判斷
+      setTimeout(() => {
+        // 命中判斷
+        const hitBox = getAttackHitBox({ ...player1, position: { ...player1.position, x: targetX, y: jumpHeight } }, player1.facing);
+        const hurtBox = getHurtBox(player2);
+        if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+          setPlayer2(prev => ({
+            ...prev,
+            health: Math.max(0, prev.health - (attackType === 'special' ? 35 : 25)),
+            state: 'hit'
+          }));
+          if (attackType === 'special') setPlayer1(prev => ({ ...prev, energy: 0 }));
+          else setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+          addEffect('hit', player2.position.x, player2.position.y);
+        }
+        // 下落
+        setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: 0 } }));
+        setTimeout(() => {
+          setPlayer1(prev => ({ ...prev, state: 'idle', position: { ...prev.position, x: targetX, y: 0 } }));
+        }, downTime);
+      }, upTime);
+    }, upTime);
+  };
+
+  const crouchAttack = (attackType: 'punch' | 'kick') => {
+    const state = attackType === 'punch' ? 'crouch_punch' : 'crouch_kick';
+    setPlayer1(prev => ({
+      ...prev,
+      state: state
+    }));
+    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 600);
+    // 命中判斷
+    const hitBox = getAttackHitBox(player1, player1.facing);
+    const hurtBox = getHurtBox(player2);
+    if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      setPlayer2(prev => ({
+        ...prev,
+        health: Math.max(0, prev.health - 25),
+        state: 'hit'
+      }));
+      setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+      addEffect('hit', player2.position.x, player2.position.y);
+    }
+    setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
+  };
+
+  // 角色圖片 import
   // 1. Cover Screen
   if (gameState.gamePhase === 'cover') {
     return (
@@ -746,6 +1170,7 @@ const FightingGame: React.FC = () => {
                 <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
               )}
             </div>
+            {/* 玩家血條與頭像區塊，血條下方加上怒氣條 */}
             <div className="flex-1">
               <div className="text-white font-bold mb-1">玩家</div>
               {/* 紅色血條 */}
@@ -755,7 +1180,13 @@ const FightingGame: React.FC = () => {
                   style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
                 />
               </div>
-              <Progress value={(player1.energy / player1.maxEnergy) * 100} className="h-2 mt-1" />
+              {/* 怒氣條 */}
+              <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
+                <div
+                  className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
+                  style={{ width: `${(player1.energy / player1.maxEnergy) * 100}%` }}
+                />
+              </div>
             </div>
           </div>
           {/* 倒數計時器，置中顯示 */}
@@ -775,7 +1206,13 @@ const FightingGame: React.FC = () => {
                   style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
                 />
               </div>
-              <Progress value={(player2.energy / player2.maxEnergy) * 100} className="h-2 mt-1" />
+              {/* 怒氣條 */}
+              <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
+                <div
+                  className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
+                  style={{ width: `${(player2.energy / player2.maxEnergy) * 100}%` }}
+                />
+              </div>
             </div>
             <div className="w-14 h-14 rounded-full bg-gray-700 border-4 border-red-500 overflow-hidden flex-shrink-0 ml-2">
               <div className="w-full h-full flex items-center justify-center text-white text-3xl">🤖</div>
@@ -791,27 +1228,20 @@ const FightingGame: React.FC = () => {
           className={`absolute transition-all duration-300 ${player1.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
             left: player1.position.x, 
-            bottom: '20px',
-            transform: `scaleX(${player1.facing === 'left' ? -1 : 1})`
+            bottom: `${40 + player1.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT
           }}
         >
-          <div className={`w-16 h-20 rounded-lg flex items-center justify-center text-2xl font-bold text-white shadow-lg
-            ${player1.state === 'hit' ? 'bg-red-600 animate-bounce' : 
-              player1.state === 'attacking' ? 'bg-orange-600' :
-              player1.state === 'defending' ? 'bg-blue-600' :
-              player1.state === 'combo' ? 'bg-purple-600 animate-pulse' :
-              player1.state === 'special' ? 'bg-yellow-400 animate-ping' :
-              player1.state === 'victory' ? 'bg-green-600' :
-              player1.state === 'death' ? 'bg-gray-600' :
-              'bg-emerald-600'}`}
-          >
-            🥋
-          </div>
-          {player1.state === 'combo' && (
-            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-yellow-400 font-bold animate-bounce">
-              x{player1.comboCount}
-            </div>
-          )}
+          <CharacterSprite
+            animationManager={player1AnimationManager}
+            facing={player1.facing}
+            state={player1.state}
+            position={player1.position}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={true}
+          />
         </div>
 
         {/* Player 2 (AI) */}
@@ -819,22 +1249,20 @@ const FightingGame: React.FC = () => {
           className={`absolute transition-all duration-300 ${player2.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
             left: player2.position.x, 
-            bottom: '20px',
-            transform: `scaleX(${player2.facing === 'left' ? -1 : 1})`
+            bottom: `${40 + player2.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT
           }}
         >
-          <div className={`w-16 h-20 rounded-lg flex items-center justify-center text-2xl font-bold text-white shadow-lg
-            ${player2.state === 'hit' ? 'bg-red-600 animate-bounce' : 
-              player2.state === 'attacking' ? 'bg-orange-600' :
-              player2.state === 'defending' ? 'bg-blue-600' :
-              player2.state === 'combo' ? 'bg-purple-600 animate-pulse' :
-              player2.state === 'special' ? 'bg-yellow-400 animate-ping' :
-              player2.state === 'victory' ? 'bg-green-600' :
-              player2.state === 'death' ? 'bg-gray-600' :
-              'bg-red-600'}`}
-          >
-            🤖
-          </div>
+          <CharacterSprite
+            animationManager={player2AnimationManager}
+            facing={player2.facing}
+            state={player2.state}
+            position={player2.position}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={false}
+          />
         </div>
 
         {/* Effects */}
@@ -847,9 +1275,6 @@ const FightingGame: React.FC = () => {
             {effect.type === 'hit' && (
               <div className="text-4xl animate-bounce">💥</div>
             )}
-            {effect.type === 'combo' && (
-              <div className="text-3xl animate-ping text-purple-400">⚡</div>
-            )}
             {effect.type === 'special' && (
               <div className="text-5xl animate-pulse text-yellow-400">🌟</div>
             )}
@@ -859,46 +1284,29 @@ const FightingGame: React.FC = () => {
             {effect.type === 'ko' && (
               <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>
             )}
+            {effect.type === 'jumpAttack' && (
+              <div className="text-4xl animate-bounce text-red-600">💥</div>
+            )}
+            {effect.type === 'crouchAttack' && (
+              <div className="text-4xl animate-bounce text-red-600">💥</div>
+            )}
+            {effect.type === 'dash' && (
+              <div className="text-4xl animate-pulse text-blue-400">💨</div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Controls */}
-      <div className="absolute bottom-4 left-4 right-4 z-10">
-        <div className="flex justify-between">
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              <ArrowLeft className="h-4 w-4" /> A
-            </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              <ArrowRight className="h-4 w-4" /> D
-            </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              <ArrowDown className="h-4 w-4" /> S
-            </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              <Shield className="h-4 w-4" /> W
-            </Button>
-            {/* 新增跳躍按鈕 */}
-            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => jumpPlayer && jumpPlayer()}>
-              跳躍 Space
-            </Button>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              攻擊 J
-            </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white">
-              連擊 K
-            </Button>
-            {/* 新增踢的按鈕 */}
-            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => kickPlayer && kickPlayer()}>
-              踢 L
-            </Button>
-            <Button variant="outline" size="sm" className="bg-black/50 text-white" onClick={() => specialAttack && specialAttack()}>
-              必殺 I
-            </Button>
-          </div>
+      {/* Controls - 簡明操作說明 */}
+      <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
+        <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
+          <span>A：向左</span>
+          <span>D：向右</span>
+          <span>W：跳躍</span>
+          <span>S：蹲下</span>
+          <span>J：拳</span>
+          <span>K：腳</span>
+          <span>L：必殺技</span>
         </div>
       </div>
 
