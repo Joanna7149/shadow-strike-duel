@@ -1,12 +1,267 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Progress } from './ui/progress';
+import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
 import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
-import mainHeroIdle from '../statics/characters/MainHero/animations/stand_idle/idle01.png';
-import textureAtlas from '../statics/characters/MainHero/animation/texture.png';
-import textureData from '../statics/characters/MainHero/animation/texture.json';
+import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
+
+// 移除舊的 texture 導入
+// import textureAtlas from '../statics/characters/MainHero/animations/texture.png';
+// import textureData from '../statics/characters/MainHero/animations/texture.json';
+
+// 遊戲常數
+const CHARACTER_WIDTH = 600;
+const CHARACTER_HEIGHT = 600;
+const MOVE_SPEED = 5;
+const DASH_SPEED = 15;
+const JUMP_HEIGHT = 100;
+const JUMP_DURATION = 500; // 毫秒
+
+// 舞台固定常數（遊戲世界的物理尺寸）
+const FIGHTING_STAGE_CONSTANTS = {
+  // 舞台背景尺寸
+  backgroundWidth: 2400, // 背景圖寬度（整個可滾動舞台）
+  backgroundHeight: 1080, // 舞台高度
+  groundY: 0, // 地板位置（角色腳底對齊點）
+};
+
+// 視窗狀態接口
+interface Viewport {
+  width: number; // 當前視窗寬度
+  height: number; // 當前視窗高度
+  leftBoundary: number; // 鏡頭左邊界
+  rightBoundary: number; // 鏡頭右邊界
+  characterAreaLeft: number; // 角色活動左邊界
+  characterAreaRight: number; // 角色活動右邊界
+}
+
+// 計算視窗狀態
+const calculateViewport = (): Viewport => {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  
+  return {
+    width,
+    height,
+    leftBoundary: 0,
+    rightBoundary: Math.max(0, FIGHTING_STAGE_CONSTANTS.backgroundWidth - width),
+    characterAreaLeft: 0,
+    characterAreaRight: Math.max(0, FIGHTING_STAGE_CONSTANTS.backgroundWidth - CHARACTER_WIDTH)
+  };
+};
+
+// 計算角色初始位置（確保在可見範圍內）
+const calculateInitialPositions = (viewport: Viewport) => {
+  const stageWidth = FIGHTING_STAGE_CONSTANTS.backgroundWidth;
+  const viewportWidth = viewport.width;
+  
+  // 如果舞台寬度小於視窗寬度，角色居中顯示
+  if (stageWidth <= viewportWidth) {
+    const centerX = viewportWidth / 2;
+    return {
+      player1X: centerX - CHARACTER_WIDTH - 100, // 左側
+      player2X: centerX + 100 // 右側
+    };
+  }
+  
+  // 如果舞台寬度大於視窗寬度，角色在視窗範圍內顯示
+  const margin = 100; // 角色距離視窗邊緣的距離
+  const availableWidth = viewportWidth - 2 * margin - CHARACTER_WIDTH * 2;
+  const spacing = Math.max(200, availableWidth / 3); // 角色間距
+  
+  return {
+    player1X: margin,
+    player2X: margin + CHARACTER_WIDTH + spacing
+  };
+};
+
+// 鏡頭系統
+interface Camera {
+  x: number; // 鏡頭X座標（相對於背景圖）
+  targetX: number; // 目標X座標
+  smoothing: number; // 平滑移動係數
+}
+
+// 計算鏡頭目標位置（追蹤玩家與敵人的中間點）
+const calculateCameraTarget = (player1X: number, player2X: number, viewport: Viewport): number => {
+  const centerX = (player1X + player2X) / 2;
+  const viewportCenter = viewport.width / 2;
+  
+  // 鏡頭中心點應該追蹤兩人的中間點
+  let targetX = centerX - viewportCenter;
+  
+  // 限制鏡頭邊界
+  targetX = Math.max(viewport.leftBoundary, Math.min(viewport.rightBoundary, targetX));
+  
+  return targetX;
+};
+
+// 動畫配置系統
+const ANIMATION_CONFIGS = {
+  // PNG 動畫配置
+  png: {
+    idle: {
+      type: 'png' as const,
+      path: 'idle',
+      frameRate: 10
+    },
+    walk: {
+      type: 'png' as const,
+      path: 'walk_forward',
+      frameRate: 10
+    },
+    walk_forward: {
+      type: 'png' as const,
+      path: 'walk_forward',
+      frameRate: 10
+    },
+    walk_backward: {
+      type: 'png' as const,
+      path: 'walk_backward',
+      frameRate: 10
+    },
+    punch: {
+      type: 'png' as const,
+      path: 'punch',
+      frameRate: 20
+    },
+    kick: {
+      type: 'png' as const,
+      path: 'kick',
+      frameRate: 15
+    },
+    jump: {
+      type: 'png' as const,
+      path: 'jump',
+      frameRate: 10
+    },
+    crouch: {
+      type: 'png' as const,
+      path: 'crouch',
+      frameRate: 10
+    },
+    crouch_punch: {
+      type: 'png' as const,
+      path: 'crouch_punch',
+      frameRate: 10
+    },
+    crouch_kick: {
+      type: 'png' as const,
+      path: 'crouch_kick',
+      frameRate: 10
+    },
+    defend: {
+      type: 'png' as const,
+      path: 'defend',
+      frameRate: 10
+    },
+    hit: {
+      type: 'png' as const,
+      path: 'hit',
+      frameRate: 10
+    },
+    special_attack: {
+      type: 'png' as const,
+      path: 'special_attack',
+      frameRate: 10
+    },
+    win_round: {
+      type: 'png' as const,
+      path: 'win_round',
+      frameRate: 10
+    },
+    dead: {
+      type: 'png' as const,
+      path: 'dead',
+      frameRate: 10
+    },
+    jump_punch: {
+      type: 'png' as const,
+      path: 'jump_punch',
+      frameRate: 20
+    },
+    jump_kick: {
+      type: 'png' as const,
+      path: 'jump_kick',
+      frameRate: 20
+    },
+    // 為其他狀態提供預設動畫
+    attacking: {
+      type: 'png' as const,
+      path: 'punch',
+      frameRate: 10
+    },
+    defending: {
+      type: 'png' as const,
+      path: 'defend',
+      frameRate: 10
+    },
+    crouching: {
+      type: 'png' as const,
+      path: 'crouch',
+      frameRate: 10
+    },
+    special: {
+      type: 'png' as const,
+      path: 'special_attack',
+      frameRate: 10
+    },
+    victory: {
+      type: 'png' as const,
+      path: 'win_round',
+      frameRate: 10
+    },
+    death: {
+      type: 'png' as const,
+      path: 'dead',
+      frameRate: 10
+    }
+  },
+  // Spritesheet 動畫配置
+  spritesheet: {
+    type: 'spritesheet' as const,
+    path: '/src/statics/characters/MainHero/animations/',
+    frameRate: 10
+  }
+};
+
+// 獲取動畫來源的函數
+function getAnimationSource(state: string, useSpritesheet: boolean = false): AnimationSource {
+  if (useSpritesheet) {
+    return {
+      ...ANIMATION_CONFIGS.spritesheet,
+      state: state
+    };
+  } else {
+    // 對於 PNG 模式，根據狀態返回對應的配置
+    const pngConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png];
+    if (pngConfig) {
+      return pngConfig;
+    }
+    // 如果找不到對應的狀態，返回 idle
+    return ANIMATION_CONFIGS.png.idle;
+  }
+}
+
+// 移除重複的動畫配置 - 這些配置與 AnimationPlayer.tsx 中的配置衝突
+// const PLAYER_ANIMATION_SOURCE: AnimationSource = {
+//   type: 'png',
+//   path: './src/statics/characters/MainHero/animations/idle/',
+//   frameCount: 13,
+//   frameRate: 10
+// };
+
+// const PLAYER_SPRITESHEET_ANIMATION_SOURCE: AnimationSource = {
+//   type: 'spritesheet',
+//   path: '/src/statics/characters/MainHero/animations/',
+//   frameRate: 10,
+//   state: 'idle'
+// };
 
 interface Character {
   id: string;
@@ -79,156 +334,11 @@ function isFacingOpponent(p1: Character, p2: Character) {
   );
 }
 
-// 動畫管理器
-class AnimationManager {
-  private textureAtlas: HTMLImageElement;
-  private textureData: any;
-  private animations: Map<string, any[]> = new Map();
-  private currentAnimation: string = 'idle';
-  private currentFrame: number = 0;
-  private frameTime: number = 0;
-  private frameDuration: number = 100; // 0.1秒 = 100ms
+// 移除舊的 PixiAnimationManager 類別
+// class PixiAnimationManager { ... }
 
-  constructor(atlasSrc: string, data: any) {
-    this.textureData = data;
-    this.textureAtlas = new Image();
-    this.textureAtlas.src = atlasSrc;
-    this.loadAnimations();
-  }
-
-  private loadAnimations() {
-    const frames = this.textureData.frames;
-    const animationStates = [
-      'idle', 'crouch', 'crouch_kick', 'crouch_punch', 'defend', 'hit', 
-      'kick', 'punch', 'jump', 'jump_kick', 'jump_punch', 'walk', 
-      'special_attack', 'win_round', 'dead'
-    ];
-
-    animationStates.forEach(state => {
-      const stateFrames = [];
-      let frameIndex = 1;
-      while (true) {
-        const frameName = `逐格/${state}/${frameIndex}.png`;
-        if (frames[frameName]) {
-          stateFrames.push({
-            name: frameName,
-            ...frames[frameName]
-          });
-          frameIndex++;
-        } else {
-          break;
-        }
-      }
-      if (stateFrames.length > 0) {
-        this.animations.set(state, stateFrames);
-      }
-    });
-  }
-
-  setAnimation(animationName: string) {
-    if (this.currentAnimation !== animationName && this.animations.has(animationName)) {
-      this.currentAnimation = animationName;
-      this.currentFrame = 0;
-      this.frameTime = 0;
-    }
-  }
-
-  update(deltaTime: number) {
-    this.frameTime += deltaTime;
-    if (this.frameTime >= this.frameDuration) {
-      this.frameTime = 0;
-      const currentAnim = this.animations.get(this.currentAnimation);
-      if (currentAnim && currentAnim.length > 0) {
-        this.currentFrame = (this.currentFrame + 1) % currentAnim.length;
-      }
-    }
-  }
-
-  getCurrentFrame() {
-    const currentAnim = this.animations.get(this.currentAnimation);
-    if (currentAnim && currentAnim.length > 0) {
-      return currentAnim[this.currentFrame];
-    }
-    return null;
-  }
-
-  isAtlasLoaded() {
-    return this.textureAtlas.complete;
-  }
-}
-
-// 角色精靈組件
-const CharacterSprite: React.FC<{
-  animationManager: AnimationManager;
-  facing: 'left' | 'right';
-  state: string;
-  position: { x: number; y: number };
-  width: number;
-  height: number;
-  isPlayer1?: boolean;
-}> = ({ animationManager, facing, state, position, width, height, isPlayer1 = false }) => {
-  const [deltaTime, setDeltaTime] = useState(0);
-  const lastTimeRef = useRef(performance.now());
-
-  useEffect(() => {
-    const animate = (currentTime: number) => {
-      const delta = currentTime - lastTimeRef.current;
-      lastTimeRef.current = currentTime;
-      setDeltaTime(delta);
-      requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, []);
-
-  useEffect(() => {
-    animationManager.setAnimation(state);
-  }, [state, animationManager]);
-
-  useEffect(() => {
-    animationManager.update(deltaTime);
-  }, [deltaTime, animationManager]);
-
-  const frame = animationManager.getCurrentFrame();
-  if (!frame || !animationManager.isAtlasLoaded()) {
-    return (
-      <div style={{
-        width: width,
-        height: height,
-        background: '#222',
-        color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        載入中...
-      </div>
-    );
-  }
-
-  const { frame: frameData } = frame;
-  // Player 1 的 scaleX 邏輯反轉
-  const scaleX = isPlayer1 
-    ? (facing === 'right' ? -1 : 1)
-    : (facing === 'left' ? -1 : 1);
-
-  return (
-    <div style={{
-      width: width,
-      height: height,
-      overflow: 'hidden',
-      transform: `scaleX(${scaleX})`
-    }}>
-      <div style={{
-        width: frameData.w,
-        height: frameData.h,
-        backgroundImage: `url(${textureAtlas})`,
-        backgroundPosition: `-${frameData.x}px -${frameData.y}px`,
-        transform: 'scale(0.9)', // 縮放以符合角色尺寸
-        transformOrigin: 'center center'
-      }} />
-    </div>
-  );
-};
+// 移除舊的 PixiCharacterSprite 組件
+// const PixiCharacterSprite: React.FC<{ ... }> = ({ ... }) => { ... }
 
 const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
@@ -243,6 +353,24 @@ const FightingGame: React.FC = () => {
   const [openingStep, setOpeningStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [gameDimensions, setGameDimensions] = useState(FIGHTING_STAGE_CONSTANTS); // 動態遊戲尺寸
+  
+  // 視窗狀態
+  const [viewport, setViewport] = useState<Viewport>(calculateViewport());
+  
+  // 計算初始位置
+  const initialPositions = calculateInitialPositions(viewport);
+  
+  // 鏡頭系統狀態
+  const [camera, setCamera] = useState<Camera>({
+    x: 0,
+    targetX: 0,
+    smoothing: 0.1 // 平滑移動係數
+  });
+  
+  // 背景圖片路徑
+  const backgroundImage = '/src/statics/backgrounds/stage1.png';
+  
   // 1. 玩家初始 energy=0
   const [player1, setPlayer1] = useState<Character>({
     id: 'player1',
@@ -251,8 +379,8 @@ const FightingGame: React.FC = () => {
     maxHealth: 100,
     energy: 0, // 初始為0
     maxEnergy: 100,
-    // 初始位置設為畫面 10% 處，避免超出
-    position: { x: window.innerWidth * 0.1, y: 0 },
+    // 初始位置設為舞台左側，y=0 表示在地面
+    position: { x: initialPositions.player1X, y: 0 },
     facing: 'right',
     state: 'idle',
     hitBox: { x: 200, y: 300, width: 40, height: 60 },
@@ -266,8 +394,8 @@ const FightingGame: React.FC = () => {
     maxHealth: 100,
     energy: 100,
     maxEnergy: 100,
-    // 初始位置設為畫面 90% 處，避免超出
-    position: { x: window.innerWidth * 0.9, y: 0 },
+    // 初始位置設為舞台右側，y=0 表示在地面
+    position: { x: initialPositions.player2X, y: 0 },
     facing: 'left',
     state: 'idle',
     hitBox: { x: 600, y: 300, width: 40, height: 60 },
@@ -280,8 +408,64 @@ const FightingGame: React.FC = () => {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
 
-  const [player1AnimationManager] = useState(() => new AnimationManager(textureAtlas, textureData));
-  const [player2AnimationManager] = useState(() => new AnimationManager(textureAtlas, textureData));
+  // 移除舊的動畫管理器狀態
+  // const [player1AnimationManager] = useState(() => new PixiAnimationManager());
+  // const [player2AnimationManager] = useState(() => new PixiAnimationManager());
+
+  // RWD 縮放效果
+  useEffect(() => {
+    const updateDimensions = () => {
+      const newViewport = calculateViewport();
+      const newInitialPositions = calculateInitialPositions(newViewport);
+      setViewport(newViewport);
+      setGameDimensions(FIGHTING_STAGE_CONSTANTS);
+      
+      // 更新角色位置以適應新的視窗大小
+      setPlayer1(prev => ({
+        ...prev,
+        position: { 
+          x: Math.min(prev.position.x, newViewport.characterAreaRight), 
+          y: prev.position.y 
+        }
+      }));
+      
+      setPlayer2(prev => ({
+        ...prev,
+        position: { 
+          x: Math.min(prev.position.x, newViewport.characterAreaRight), 
+          y: prev.position.y 
+        }
+      }));
+    };
+
+    // 初始設定
+    updateDimensions();
+
+    // 監聽視窗大小變化
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  // 鏡頭更新邏輯
+  useEffect(() => {
+    if (gameState.gamePhase !== 'level-battle') return;
+
+    const updateCamera = () => {
+      // 計算鏡頭目標位置
+      const targetX = calculateCameraTarget(player1.position.x, player2.position.x, viewport);
+      
+      // 平滑移動鏡頭
+      setCamera(prev => ({
+        ...prev,
+        targetX,
+        x: prev.x + (targetX - prev.x) * prev.smoothing
+      }));
+    };
+
+    // 每幀更新鏡頭
+    const cameraInterval = setInterval(updateCamera, 16); // 60fps
+    return () => clearInterval(cameraInterval);
+  }, [gameState.gamePhase, player1.position.x, player2.position.x, viewport]);
 
   // Opening animation effect
   useEffect(() => {
@@ -355,7 +539,7 @@ const FightingGame: React.FC = () => {
           if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
             setPlayer2(prev => ({
               ...prev,
-              health: Math.max(0, prev.health - 25),
+              health: Math.max(0, prev.health - 10),
               state: 'hit'
             }));
             setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -372,7 +556,7 @@ const FightingGame: React.FC = () => {
           if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
             setPlayer2(prev => ({
               ...prev,
-              health: Math.max(0, prev.health - 25),
+              health: Math.max(0, prev.health - 10),
               state: 'hit'
             }));
             setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -471,6 +655,21 @@ const FightingGame: React.FC = () => {
         next.delete(key);
         return next;
       });
+      
+      // 當釋放S鍵時，如果沒有其他動作，回到idle狀態
+      if (key === 's') {
+        setPlayer1(prev => {
+          // 檢查是否還有其他按鍵被按下
+          const remainingKeys = new Set(pressedKeys);
+          remainingKeys.delete('s');
+          
+          // 如果沒有其他按鍵，且當前是蹲下狀態，回到idle
+          if (remainingKeys.size === 0 && prev.state === 'crouch') {
+            return { ...prev, state: 'idle' };
+          }
+          return prev;
+        });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -490,10 +689,6 @@ const FightingGame: React.FC = () => {
     }
   }, [gameState.gamePhase, gameState.isPaused, player1, player2]);
 
-  // 角色尺寸常數
-  const CHARACTER_WIDTH = 200;
-  const CHARACTER_HEIGHT = 500;
-
   // 新的碰撞判斷工具
   function getAttackHitBox(attacker: Character, facing: 'left' | 'right') {
     // attacker.position.x, attacker.position.y
@@ -506,22 +701,29 @@ const FightingGame: React.FC = () => {
     };
   }
   function getHurtBox(target: Character) {
+    // 以角色圖片的中間 40% 區塊作為 hurtbox
+    const boxWidth = CHARACTER_WIDTH * 0.4;
+    const boxHeight = CHARACTER_HEIGHT * 0.4;
+    const x = target.position.x + (CHARACTER_WIDTH - boxWidth) / 2;
+    const y = target.position.y + (CHARACTER_HEIGHT - boxHeight) / 2;
     return {
-      x: target.position.x,
-      y: target.position.y,
-      width: CHARACTER_WIDTH,
-      height: CHARACTER_HEIGHT
+      x,
+      y,
+      width: boxWidth,
+      height: boxHeight
     };
   }
 
   const movePlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
-      // 取得舞台寬度
-      const stageWidth = window.innerWidth;
-      const minX = stageWidth * 0.02;
-      const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+      // 考慮角色縮放後的實際大小
+      const scaledWidth = CHARACTER_WIDTH;
+      const minX = viewport.characterAreaLeft;
+      const maxX = viewport.characterAreaRight - scaledWidth;
+      
       let newX = prev.position.x + (direction === 'left' ? -30 : 30);
       newX = Math.max(minX, Math.min(maxX, newX));
+      
       return {
         ...prev,
         position: {
@@ -538,11 +740,14 @@ const FightingGame: React.FC = () => {
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
-      const stageWidth = window.innerWidth;
-      const minX = stageWidth * 0.02;
-      const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
+      // 考慮角色縮放後的實際大小
+      const scaledWidth = CHARACTER_WIDTH;
+      const minX = viewport.characterAreaLeft;
+      const maxX = viewport.characterAreaRight - scaledWidth;
+      
       let newX = prev.position.x + (direction === 'left' ? -100 : 100);
       newX = Math.max(minX, Math.min(maxX, newX));
+      
       addEffect('dash', newX, prev.position.y);
       return {
         ...prev,
@@ -577,7 +782,7 @@ const FightingGame: React.FC = () => {
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
       setPlayer2(prev => ({
         ...prev,
-        health: Math.max(0, prev.health - 15),
+        health: Math.max(0, prev.health - 5),
         state: 'hit'
       }));
       setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -601,7 +806,7 @@ const FightingGame: React.FC = () => {
         if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
           setPlayer2(prev => ({
             ...prev,
-            health: Math.max(0, prev.health - 35),
+            health: Math.max(0, prev.health - 25),
             state: 'hit'
           }));
           addEffect('lightning', player2.position.x, player2.position.y);
@@ -636,7 +841,7 @@ const FightingGame: React.FC = () => {
         if (player1.state !== 'defending') {
           setPlayer1(prev => ({ 
             ...prev, 
-            health: Math.max(0, prev.health - 18),
+            health: Math.max(0, prev.health - 5),
             state: 'hit'
           }));
           setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -737,20 +942,21 @@ const FightingGame: React.FC = () => {
   };
 
   const resetPlayersForNewBattle = () => {
-    setPlayer1(prev => ({ 
-      ...prev, 
+    const newInitialPositions = calculateInitialPositions(viewport);
+    setPlayer1(prev => ({
+      ...prev,
       health: 100, 
       energy: 0, // 歸零
-      position: { x: window.innerWidth * 0.1, y: 0 },
+      position: { x: newInitialPositions.player1X, y: 0 },
       state: 'idle',
       hitBox: { x: 200, y: 300, width: 40, height: 60 },
       hurtBox: { x: 200, y: 300, width: 40, height: 60 }
     }));
-    setPlayer2(prev => ({ 
-      ...prev, 
+    setPlayer2(prev => ({
+      ...prev,
       health: 100, 
       energy: 100, 
-      position: { x: window.innerWidth * 0.9, y: 0 },
+      position: { x: newInitialPositions.player2X, y: 0 },
       state: 'idle',
       hitBox: { x: 600, y: 300, width: 40, height: 60 },
       hurtBox: { x: 600, y: 300, width: 40, height: 60 }
@@ -759,7 +965,6 @@ const FightingGame: React.FC = () => {
 
   const startOpeningAnimation = () => {
     setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
-    setOpeningStep(0);
   };
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -778,8 +983,10 @@ const FightingGame: React.FC = () => {
       ...prev, 
       gamePhase: 'level-battle',
       currentLevel: 1,
-      timeLeft: 60 
+      timeLeft: 60,
+      isPaused: false
     }));
+    resetPlayersForNewBattle();
   };
 
   const resetGame = () => {
@@ -788,28 +995,27 @@ const FightingGame: React.FC = () => {
       currentLevel: 1,
       gamePhase: 'cover',
       isPaused: false,
-      playerPhoto: null,
-      lastResult: null
+      playerPhoto: null
     });
-    setPlayer1(prev => ({ 
-      ...prev, 
+    const newInitialPositions = calculateInitialPositions(viewport);
+    setPlayer1(prev => ({
+      ...prev,
       health: 100, 
       energy: 0, // 歸零
-      position: { x: window.innerWidth * 0.1, y: 0 },
+      position: { x: newInitialPositions.player1X, y: 0 },
       state: 'idle',
       hitBox: { x: 200, y: 300, width: 40, height: 60 },
       hurtBox: { x: 200, y: 300, width: 40, height: 60 }
     }));
-    setPlayer2(prev => ({ 
-      ...prev, 
+    setPlayer2(prev => ({
+      ...prev,
       health: 100, 
       energy: 100, 
-      position: { x: window.innerWidth * 0.7, y: 0 },
+      position: { x: newInitialPositions.player2X, y: 0 },
       state: 'idle',
       hitBox: { x: 600, y: 300, width: 40, height: 60 },
       hurtBox: { x: 600, y: 300, width: 40, height: 60 }
     }));
-    setOpeningStep(0);
   };
 
   // 新增跳躍與踢的函式
@@ -852,7 +1058,7 @@ const FightingGame: React.FC = () => {
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
       setPlayer2(prev => ({
         ...prev,
-        health: Math.max(0, prev.health - 18),
+        health: Math.max(0, prev.health - 10),
         state: 'hit'
       }));
       setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -912,14 +1118,26 @@ const FightingGame: React.FC = () => {
       ...prev,
       state: state
     }));
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 600);
+    
+    // 攻擊後回到蹲下狀態，而不是idle
+    setTimeout(() => {
+      setPlayer1(prev => {
+        // 檢查是否還按著S鍵
+        if (pressedKeys.has('s')) {
+          return { ...prev, state: 'crouch' };
+        } else {
+          return { ...prev, state: 'idle' };
+        }
+      });
+    }, 600);
+    
     // 命中判斷
     const hitBox = getAttackHitBox(player1, player1.facing);
     const hurtBox = getHurtBox(player2);
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
       setPlayer2(prev => ({
         ...prev,
-        health: Math.max(0, prev.health - 25),
+        health: Math.max(0, prev.health - 10),
         state: 'hit'
       }));
       setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
@@ -1132,13 +1350,17 @@ const FightingGame: React.FC = () => {
     );
   }
 
-  // 5. Level Battle
+  // 6. Level Battle
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
   
   return (
     <div 
       className="min-h-screen relative overflow-hidden"
-      style={{ background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)' }}
+      style={{ 
+        background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
+        width: '100vw',
+        height: '100vh'
+      }}
     >
       {/* Level Battle UI */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
@@ -1156,7 +1378,6 @@ const FightingGame: React.FC = () => {
             </div>
             <div className="text-white font-bold">第 {gameState.currentLevel} 關</div>
           </div>
-          {/* 右上方時間顯示已徹底移除 */}
         </div>
 
         {/* Health bars */}
@@ -1170,17 +1391,14 @@ const FightingGame: React.FC = () => {
                 <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
               )}
             </div>
-            {/* 玩家血條與頭像區塊，血條下方加上怒氣條 */}
             <div className="flex-1">
               <div className="text-white font-bold mb-1">玩家</div>
-              {/* 紅色血條 */}
               <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div
                   className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
                   style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
                 />
               </div>
-              {/* 怒氣條 */}
               <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
                 <div
                   className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
@@ -1189,7 +1407,7 @@ const FightingGame: React.FC = () => {
               </div>
             </div>
           </div>
-          {/* 倒數計時器，置中顯示 */}
+          {/* 倒數計時器 */}
           <div className="w-1/3 flex items-center justify-center">
             <div className="text-3xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
               {gameState.timeLeft}
@@ -1199,14 +1417,12 @@ const FightingGame: React.FC = () => {
           <div className="w-1/3 flex items-center space-x-2 justify-end">
             <div className="flex-1 text-right">
               <div className="text-white font-bold mb-1">AI</div>
-              {/* 紅色血條 */}
               <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
                 <div
                   className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
                   style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
                 />
               </div>
-              {/* 怒氣條 */}
               <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
                 <div
                   className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
@@ -1221,83 +1437,118 @@ const FightingGame: React.FC = () => {
         </div>
       </div>
 
-      {/* Game Field */}
-      <div className="absolute bottom-0 left-0 right-0 h-96 bg-gradient-to-t from-black/30 to-transparent">
-        {/* Player 1 */}
+      {/* 格鬥遊戲舞台 */}
+      <div 
+        className="absolute inset-0 overflow-hidden"
+        style={{
+          width: `${viewport.width}px`,
+          height: `${viewport.height}px`,
+          transform: `translateX(-${camera.x}px)`,
+          transition: 'transform 0.1s ease-out'
+        }}
+      >
+        {/* 舞台背景 */}
         <div 
-          className={`absolute transition-all duration-300 ${player1.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player1.position.x, 
-            bottom: `${40 + player1.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT
+          className="absolute"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+            width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
+            height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+            left: 0,
+            top: `${Math.max(0, viewport.height - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
           }}
-        >
-          <CharacterSprite
-            animationManager={player1AnimationManager}
-            facing={player1.facing}
-            state={player1.state}
-            position={player1.position}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={true}
-          />
-        </div>
+        />
 
-        {/* Player 2 (AI) */}
-        <div 
-          className={`absolute transition-all duration-300 ${player2.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player2.position.x, 
-            bottom: `${40 + player2.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT
-          }}
-        >
-          <CharacterSprite
-            animationManager={player2AnimationManager}
-            facing={player2.facing}
-            state={player2.state}
-            position={player2.position}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={false}
-          />
-        </div>
-
-        {/* Effects */}
-        {effects.map(effect => (
-          <div
-            key={effect.id}
-            className="absolute pointer-events-none"
-            style={{ left: effect.x, bottom: '40px' }}
+        {/* 角色容器 */}
+        <div className="absolute inset-0">
+          {/* Player 1 */}
+          <div 
+            className={`absolute transition-all duration-300 ${player1.state === 'special' ? 'animate-pulse' : ''}`}
+            style={{ 
+              left: player1.position.x, 
+              bottom: `${player1.position.y}px`, // 簡化Y軸定位
+              width: CHARACTER_WIDTH,
+              height: CHARACTER_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none'
+            }}
           >
-            {effect.type === 'hit' && (
-              <div className="text-4xl animate-bounce">💥</div>
-            )}
-            {effect.type === 'special' && (
-              <div className="text-5xl animate-pulse text-yellow-400">🌟</div>
-            )}
-            {effect.type === 'lightning' && (
-              <div className="text-6xl animate-pulse text-blue-400">⚡</div>
-            )}
-            {effect.type === 'ko' && (
-              <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>
-            )}
-            {effect.type === 'jumpAttack' && (
-              <div className="text-4xl animate-bounce text-red-600">💥</div>
-            )}
-            {effect.type === 'crouchAttack' && (
-              <div className="text-4xl animate-bounce text-red-600">💥</div>
-            )}
-            {effect.type === 'dash' && (
-              <div className="text-4xl animate-pulse text-blue-400">💨</div>
-            )}
+            <AnimationPlayer
+              source={getAnimationSource(player1.state)}
+              facing={player1.facing}
+              state={player1.state}
+              width={CHARACTER_WIDTH}
+              height={CHARACTER_HEIGHT}
+              isPlayer1={true}
+            />
           </div>
-        ))}
+
+          {/* Player 2 (AI) */}
+          <div 
+            className={`absolute transition-all duration-300 ${player2.state === 'special' ? 'animate-pulse' : ''}`}
+            style={{ 
+              left: player2.position.x, 
+              bottom: `${player2.position.y}px`, // 簡化Y軸定位
+              width: CHARACTER_WIDTH,
+              height: CHARACTER_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none'
+            }}
+          >
+            <AnimationPlayer
+              source={getAnimationSource(player2.state)}
+              facing={player2.facing}
+              state={player2.state}
+              width={CHARACTER_WIDTH}
+              height={CHARACTER_HEIGHT}
+              isPlayer1={false}
+            />
+          </div>
+
+          {/* Effects */}
+          {effects.map(effect => (
+            <div
+              key={effect.id}
+              className="absolute pointer-events-none"
+              style={{ 
+                left: effect.x - camera.x, 
+                bottom: `${effect.y}px` // 簡化Y軸定位
+              }}
+            >
+              {effect.type === 'hit' && (
+                <div className="text-4xl animate-bounce">💥</div>
+              )}
+              {effect.type === 'special' && (
+                <div className="text-5xl animate-pulse text-yellow-400">🌟</div>
+              )}
+              {effect.type === 'lightning' && (
+                <div className="text-6xl animate-pulse text-blue-400">⚡</div>
+              )}
+              {effect.type === 'ko' && (
+                <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>
+              )}
+              {effect.type === 'jumpAttack' && (
+                <div className="text-4xl animate-bounce text-red-600">💥</div>
+              )}
+              {effect.type === 'crouchAttack' && (
+                <div className="text-4xl animate-bounce text-red-600">💥</div>
+              )}
+              {effect.type === 'dash' && (
+                <div className="text-4xl animate-pulse text-blue-400">💨</div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Controls - 簡明操作說明 */}
+      {/* Controls */}
       <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
         <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
           <span>A：向左</span>
@@ -1324,7 +1575,7 @@ const FightingGame: React.FC = () => {
         </div>
       )}
       {showResultModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-0">
           <div className="bg-white rounded-lg shadow-lg p-10 text-center">
             <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
             <button
