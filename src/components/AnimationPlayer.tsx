@@ -17,7 +17,8 @@ const PngAnimationPlayer: React.FC<{
   width: number;
   height: number;
   isPlayer1?: boolean;
-}> = ({ source, facing, width, height, isPlayer1 = false }) => {
+  onFrameChange?: (frame: number) => void;
+}> = ({ source, facing, width, height, isPlayer1 = false, onFrameChange }) => {
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isLoaded, setIsLoaded] = useState(false);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -83,6 +84,10 @@ const PngAnimationPlayer: React.FC<{
   const frameNumber = currentFrame.toString();
   // 使用 import.meta.url 來正確處理 Vite 的靜態資源
   const imagePath = new URL(`../statics/characters/MainHero/animations/${source.path}/${frameNumber}.png`, import.meta.url).href;
+
+  useEffect(() => {
+    if (onFrameChange) onFrameChange(currentFrame);
+  }, [currentFrame]);
 
   return (
     <div 
@@ -247,7 +252,8 @@ const AnimationPlayer: React.FC<{
   height: number;
   isPlayer1?: boolean;
   state?: string; // 添加 state 屬性來控制動畫狀態
-}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle' }) => {
+  onFrameChange?: (frame: number) => void;
+}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle', onFrameChange }) => {
   if (source.type === 'png') {
     return (
       <PngAnimationPlayer
@@ -256,6 +262,7 @@ const AnimationPlayer: React.FC<{
         width={width}
         height={height}
         isPlayer1={isPlayer1}
+        onFrameChange={onFrameChange}
       />
     );
   } else if (source.type === 'spritesheet') {
