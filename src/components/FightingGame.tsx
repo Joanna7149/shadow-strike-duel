@@ -127,7 +127,7 @@ const ANIMATION_CONFIGS = {
     punch: {
       type: 'png' as const,
       path: 'punch',
-      frameRate: 20
+      frameRate: 25
     },
     kick: {
       type: 'png' as const,
@@ -283,6 +283,7 @@ interface GameState {
   isPaused: boolean;
   playerPhoto: string | null;
   lastResult?: 'win' | 'lose' | null;
+  taskId?: string; // 新增 taskId 狀態
 }
 
 const LEVELS = [
@@ -1102,14 +1103,58 @@ const FightingGame: React.FC = () => {
     setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadLoading, setUploadLoading] = useState(false);
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setGameState(prev => ({ ...prev, playerPhoto: e.target?.result as string }));
-      };
-      reader.readAsDataURL(file);
+      setUploadLoading(true);
+      const formData = new FormData();
+      formData.append('picture', file); // key 為 picture
+      try {
+        const response = await fetch('https://vibe-coding-upload-user-picture-18729033947.asia-east1.run.app', {
+          method: 'POST',
+          body: formData
+        });
+        if (response.status === 202) {
+          const data = await response.json();
+          if (data.task_id) {
+            // 先將本地圖片 URL 存入 playerPhoto
+            const localUrl = URL.createObjectURL(file);
+            setGameState(prev => ({ ...prev, playerPhoto: localUrl, taskId: data.task_id }));
+            console.log('照片上傳成功，task_id: ' + data.task_id);
+            // 呼叫 fetchUploadedPhoto 取得正式照片，成功才進入遊戲
+            fetchUploadedPhoto(data.task_id);
+          }
+        } else if (response.ok) {
+          const data = await response.json();
+          setGameState(prev => ({ ...prev, playerPhoto: data.url }));
+          // 若直接拿到 url 也呼叫 fetchUploadedPhoto 以確保流程一致
+          if (data.task_id) fetchUploadedPhoto(data.task_id);
+        } else {
+          throw new Error('上傳失敗');
+        }
+      } catch (e) {
+        alert('照片上傳失敗，請重試');
+        setUploadLoading(false);
+      }
+    }
+  };
+
+  // 取得上傳後的照片網址，成功才進入遊戲畫面，404 時自動重試
+  const fetchUploadedPhoto = async (taskId: string) => {
+    console.log('fetchUploadedPhoto', taskId);
+    const response = await fetch(`https://vibe-coding-get-user-picture-18729033947.asia-east1.run.app?task_id=${encodeURIComponent(taskId)}`);
+    if (response.status === 404) {
+      console.log('404');
+      // 404 時隔 2 秒重試
+      setTimeout(() => fetchUploadedPhoto(taskId), 2000);
+      return;
+    }
+    if (response.status === 200) {
+      console.log('取得圖片成功');
+      setGameState(prev => ({ ...prev, playerPhoto: `https://storage.googleapis.com/vibe_coding_bucket/results/${taskId}/1.png`}));
+      setUploadLoading(false);
     }
   };
 
@@ -1384,9 +1429,10 @@ const FightingGame: React.FC = () => {
             <Button
               onClick={() => fileInputRef.current?.click()}
               className="mb-4 bg-blue-600 hover:bg-blue-700"
+              disabled={uploadLoading}
             >
               <Upload className="mr-2 h-4 w-4" />
-              上傳大頭照
+              {uploadLoading ? "上傳照片中" : "上傳大頭照"}
             </Button>
             
             <p className="text-sm text-gray-300 mb-6">
@@ -1399,8 +1445,9 @@ const FightingGame: React.FC = () => {
               <Button
                 onClick={startFirstLevel}
                 className="text-xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+                disabled={uploadLoading}
               >
-                開始冒險
+              {uploadLoading ? "上傳照片中" : "開始冒險"}
               </Button>
             </div>
           )}
