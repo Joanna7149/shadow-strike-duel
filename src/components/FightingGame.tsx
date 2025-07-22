@@ -7,7 +7,7 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
-import AnimationPlayer, { AnimationSource } from './AnimationPlayer'; 
+import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
 
 // 移除舊的 texture 導入
 // import textureAtlas from '../statics/characters/MainHero/animations/texture.png';
@@ -367,6 +367,10 @@ const FightingGame: React.FC = () => {
     smoothing: 0.1 // 平滑移動係數
   });
   
+  const setPlayerIdleState = (player) => {
+
+  };
+
   // 背景圖片路徑
   const backgroundImage = '/src/statics/backgrounds/stage1.png';
   
@@ -406,6 +410,8 @@ const FightingGame: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
+  const player1IdleStateRef = useRef(null);
+  // const player2IdleStateRef = useRef(null);
 
   // 移除舊的動畫管理器狀態
   // const [player1AnimationManager] = useState(() => new PixiAnimationManager());
@@ -535,7 +541,7 @@ const FightingGame: React.FC = () => {
           // 命中判斷
           const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
           const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-          if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+          if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
             setPlayer2(prev => ({
               ...prev,
               health: Math.max(0, prev.health - 10),
@@ -552,7 +558,7 @@ const FightingGame: React.FC = () => {
           // 命中判斷
           const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
           const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-          if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+          if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
             setPlayer2(prev => ({
               ...prev,
               health: Math.max(0, prev.health - 10),
@@ -726,11 +732,13 @@ const FightingGame: React.FC = () => {
     if (!collisionData) return [];
     const anim = collisionData[target.state] || collisionData['idle'];
     const frameData = anim?.[String(currentFrame)]?.hurtBox || [];
+    // console.log(`${target.id} x: ${target.position.x} y: ${target.position.y}`)
     return frameData.map(box => {
-      //let x = target.position.x + (target.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
-      //let y = target.position.y + box.y;
+      // let x = target.position.x + (target.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
+      // let y = target.position.y + box.y;
       let x = box.x;
       let y = box.y;
+      // console.log(`${target.id} x_result: ${x} y_result: ${y}`)
       return { x, y, width: box.width, height: box.height };
     });
   }
@@ -739,20 +747,43 @@ const FightingGame: React.FC = () => {
     const anim = collisionData[attacker.state] || collisionData['idle'];
     const frameData = anim?.[String(currentFrame)]?.hitBox || [];
     return frameData.map(box => {
-      let x = attacker.position.x + (attacker.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
-      let y = attacker.position.y + box.y;
+      // let x = attacker.position.x + (attacker.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
+      // let y = attacker.position.y + box.y;
+      let x = box.x;
+      let y = box.y;
       return { x, y, width: box.width, height: box.height };
     });
   }
 
   // 5. 碰撞檢查
-  function isCollision(box1: Box, box2: Box) {
-    return (
-      box1.x < box2.x + box2.width &&
-      box1.x + box1.width > box2.x &&
-      box1.y < box2.y + box2.height &&
-      box1.y + box1.height > box2.y
-    );
+  function isCollision(player1, player2, box1: Box, box2: Box) {
+    console.log("isCollision")
+    // box1: hitbox; player1
+    // box2: hurtbox; player2
+    let player1HitBoxLeft = player1.position.x + box1.x;
+    let player1HitBoxRight = player1HitBoxLeft + box1.width;
+    
+    const player2HurtBoxLeft = player2.position.x + box2.x;
+    const player2HurtBoxRight = player2HurtBoxLeft + box2.width;
+
+    if (player1.facing == "right") {
+      player1HitBoxLeft = player1.position.x + CHARACTER_WIDTH - (box1.x + box1.width);
+      player1HitBoxRight = player1.position.x + CHARACTER_WIDTH - box1.x;
+    }
+
+    let getHitted = false;
+    if ((player1HitBoxLeft > player2HurtBoxLeft && player1HitBoxLeft < player2HurtBoxRight) || 
+    (player1HitBoxRight > player2HurtBoxLeft && player1HitBoxRight < player2HurtBoxRight)) {
+      getHitted = true;
+    }
+
+    return getHitted;
+    // return (
+    //   localX < box2.x + box2.width &&
+    //   box1.x + box1.width > box2.x &&
+    //   box1.y < box2.y + box2.height &&
+    //   box1.y + box1.height > box2.y
+    // );
   }
 
   // 6. 在渲染角色時加上 hitbox/hurtbox div（可視化調試）
@@ -812,7 +843,7 @@ const FightingGame: React.FC = () => {
         state: 'walk'
       };
     });
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
+    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
   };
 
   // Dash (前衝/後衝)
@@ -837,36 +868,62 @@ const FightingGame: React.FC = () => {
         state: 'walk'
       };
     });
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 200);
+    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 200);
   };
 
   const defendPlayer = () => {
     setPlayer1(prev => ({ ...prev, state: 'defending' }));
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 500);
+    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 500);
   };
 
   // 在 attackPlayer、comboAttack、kickPlayer、specialAttack 等攻擊函式中，若 player1 正在 movePlayer('left') 或 movePlayer('right') 且是遠離 AI，則自動進入防禦狀態。
   // 這裡以 attackPlayer 為例，其他攻擊函式可依此類推。
   // 2. 只有攻擊命中對手時才加能量，不能超過 maxEnergy
   const attackPlayer = () => {
-      setPlayer1(prev => ({ 
+    clearTimeout(player1IdleStateRef.current);
+    setPlayer1(prev => {
+      return({ 
         ...prev, 
       state: 'punch'
-    }));
-    setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+    })});
+
+    // setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+    console.log(player1CurrentFrame)
     // 命中判斷
     const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
     const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-    if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
-          setPlayer2(prev => ({ 
-            ...prev, 
-        health: Math.max(0, prev.health - 5),
-            state: 'hit'
-          }));
-      setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+    // if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+    //   setPlayer2(prev => ({ 
+    //     ...prev, 
+    // health: Math.max(0, prev.health - 5),
+    //     state: 'hit'
+    //   }));
+
+
+    hurtBoxes.some(hurtBox => {
+      return hitBoxes.some(hitBox => {
+        return isCollision(player1, player2, hitBox, hurtBox)
+      })
+    })
+
+    if (hurtBoxes.some(hurtBox => hitBoxes.some(hitBox => isCollision(player1, player2, hitBox, hurtBox)))) {
+      setPlayer2(prev => ({ 
+        ...prev, 
+    health: Math.max(0, prev.health - 5),
+        state: 'hit'
+      }));
+    
+      // if (true) {
+      //   setPlayer2(prev => ({ 
+      //     ...prev, 
+      // health: Math.max(0, prev.health - 5),
+      //     state: 'hit'
+      //   }));
+        
+  setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
       addEffect('hit', player2.position.x, player2.position.y);
     }
-    setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
+    // setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 1000);
   };
 
   // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
@@ -877,11 +934,11 @@ const FightingGame: React.FC = () => {
         state: 'special',
         energy: 0
       }));
-      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 1000);
+      player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 1000);
       setTimeout(() => {
         const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
         const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-        if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+        if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
           setPlayer2(prev => ({ 
             ...prev, 
             health: Math.max(0, prev.health - 25),
@@ -939,7 +996,7 @@ const FightingGame: React.FC = () => {
     }
     setTimeout(() => {
       setPlayer2(prev => ({ ...prev, state: 'idle' }));
-      setPlayer1(prev => ({ ...prev, state: prev.health > 0 ? 'idle' : prev.state }));
+      // player1IdleStateRef.current = setPlayer1(prev => ({ ...prev, state: prev.health > 0 ? 'idle' : prev.state }));
     }, 400);
   };
 
@@ -1132,7 +1189,7 @@ const FightingGame: React.FC = () => {
     // 命中判斷
     const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
     const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-    if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+    if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
         setPlayer2(prev => ({ 
           ...prev, 
         health: Math.max(0, prev.health - 10),
@@ -1141,7 +1198,7 @@ const FightingGame: React.FC = () => {
       setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
         addEffect('hit', player2.position.x, player2.position.y);
       }
-      setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
+      player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 400);
       setTimeout(() => setPlayer2(prev => ({ ...prev, state: 'idle' })), 600);
   };
 
@@ -1171,7 +1228,7 @@ const FightingGame: React.FC = () => {
         // 命中判斷
         const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
         const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-        if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+        if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
           setPlayer2(prev => ({
             ...prev,
             health: Math.max(0, prev.health - 10),
@@ -1182,7 +1239,7 @@ const FightingGame: React.FC = () => {
         }
         // 下落
         setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: 0 } }));
-        setTimeout(() => {
+        player1IdleStateRef.current = setTimeout(() => {
           setPlayer1(prev => ({ ...prev, state: 'idle', position: { ...prev.position, x: targetX, y: 0 } }));
         }, downTime);
       }, upTime);
@@ -1211,7 +1268,7 @@ const FightingGame: React.FC = () => {
     // 命中判斷
     const hitBoxes = getAttackHitBox(player1, player1CurrentFrame);
     const hurtBoxes = getHurtBox(player2, player2CurrentFrame);
-    if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)))) {
+    if (hitBoxes.some(hitBox => hurtBoxes.some(hurtBox => isFacingOpponent(player1, player2) && isCollision(player1, player2, hitBox, hurtBox)))) {
       setPlayer2(prev => ({
         ...prev,
         health: Math.max(0, prev.health - 10),
@@ -1435,17 +1492,23 @@ const FightingGame: React.FC = () => {
     return boxes.map((box, index) => {
       let localX = box.x;
       let localY = box.y;
-
-      // 將局部坐標轉換為全局坐標
-      //let displayX = character.position.x + localX;
-      //const displayY = character.position.y + localY;
+      // let displayX = character.position.x + localX;
       let displayX = localX;
+      // const displayY = character.position.y + localY;
       const displayY = localY;
-
-      // 處理角色翻轉時的 X 軸調整
-      //if (character.facing === 'left') {
-      //  displayX = character.position.x + CHARACTER_WIDTH - (localX + box.width);
-      //}
+      // console.log(`renderBoxex: player: ${character.id} localX: ${localX} displayX: ${displayX}`)
+      // if (character.facing === 'left') {
+      //   displayX = character.position.x + CHARACTER_WIDTH - (localX + box.width);
+      //   // displayX = character.position.x + (localX);
+      //   console.log(`facing left: player: ${character.id} displayX: ${displayX}`)
+      // }
+      if (boxType == "hit") {
+        if (character.facing === 'left') {
+          displayX = localX;
+        } else {
+          displayX = CHARACTER_WIDTH - (localX + box.width);
+        }
+      }
       const borderColor = boxType === 'hit' ? 'red' : 'blue';
       return (
         <div
@@ -1595,6 +1658,7 @@ const FightingGame: React.FC = () => {
               source={getAnimationSource(player1.state)}
               facing={player1.facing}
               state={player1.state}
+              setPlayer={setPlayer1}
               width={CHARACTER_WIDTH}
               height={CHARACTER_HEIGHT}
               isPlayer1={true}
@@ -1626,6 +1690,7 @@ const FightingGame: React.FC = () => {
               height={CHARACTER_HEIGHT}
               isPlayer1={false}
               onFrameChange={setPlayer2CurrentFrame}
+              setPlayer={setPlayer2}
             />
             {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt', camera.x)}
             {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit', camera.x)}

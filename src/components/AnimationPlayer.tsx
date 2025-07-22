@@ -17,8 +17,10 @@ const PngAnimationPlayer: React.FC<{
   width: number;
   height: number;
   isPlayer1?: boolean;
+  state: string;
+  setPlayer: (player: Object) => void;
   onFrameChange?: (frame: number) => void;
-}> = ({ source, facing, width, height, isPlayer1 = false, onFrameChange }) => {
+}> = ({ source, facing, width, height, state, isPlayer1 = false, onFrameChange, setPlayer }) => {
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isLoaded, setIsLoaded] = useState(false);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,18 +58,28 @@ const PngAnimationPlayer: React.FC<{
   const actionName = segments[segments.length - 1]; // 取最後一段作為動作名稱
   const maxFrames = frameCounts[actionName] || source.frameCount || 1;
 
+  // if (isPlayer1) {
+  //   console.log(`png state: ${state}`)
+  // }
+  
+
   // 重置動畫幀計數器當狀態改變時
   useEffect(() => {
     setCurrentFrame(1);
     setIsLoaded(false);
-  }, [source.path, source.state]);
+  }, [source.path, source.state, state]);
 
   useEffect(() => {
     // 設置動畫循環
     const interval = setInterval(() => {
       setCurrentFrame(prev => {
         const next = prev + 1;
-        return next > maxFrames ? 1 : next;
+        if (next > maxFrames) {
+          setPlayer(playerprev => ({ ...playerprev, state: 'idle' }));
+          // return 1;
+          return 1;
+        }
+        return next;
       });
     }, 1000 / source.frameRate);
 
@@ -99,7 +111,8 @@ const PngAnimationPlayer: React.FC<{
         justifyContent: 'center',
         transform: `scaleX(${isPlayer1 ? (facing === 'right' ? -1 : 1) : (facing === 'left' ? -1 : 1)})`,
         transformOrigin: 'center',
-        position: 'relative'
+        position: 'relative',
+        // border: "3px solid yellow"
       }}
     >
       <img
@@ -110,7 +123,8 @@ const PngAnimationPlayer: React.FC<{
           height: '100%',
           objectFit: 'contain',
           maxWidth: '100%',
-          maxHeight: '100%'
+          maxHeight: '100%',
+          border: "3px solid green"
         }}
         onLoad={() => setIsLoaded(true)}
         onError={(e) => {
@@ -253,7 +267,8 @@ const AnimationPlayer: React.FC<{
   isPlayer1?: boolean;
   state?: string; // 添加 state 屬性來控制動畫狀態
   onFrameChange?: (frame: number) => void;
-}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle', onFrameChange }) => {
+  setPlayer: (player: Object) => void;
+}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle', onFrameChange, setPlayer }) => {
   if (source.type === 'png') {
     return (
       <PngAnimationPlayer
@@ -262,7 +277,9 @@ const AnimationPlayer: React.FC<{
         width={width}
         height={height}
         isPlayer1={isPlayer1}
+        state={state}
         onFrameChange={onFrameChange}
+        setPlayer={setPlayer}
       />
     );
   } else if (source.type === 'spritesheet') {
