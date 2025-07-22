@@ -7,15 +7,15 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
-import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
+import AnimationPlayer, { AnimationSource } from './AnimationPlayer'; 
 
 // 移除舊的 texture 導入
 // import textureAtlas from '../statics/characters/MainHero/animations/texture.png';
 // import textureData from '../statics/characters/MainHero/animations/texture.json';
 
 // 遊戲常數
-const CHARACTER_WIDTH = 600;
-const CHARACTER_HEIGHT = 600;
+const CHARACTER_WIDTH = 512;
+const CHARACTER_HEIGHT = 512;
 const MOVE_SPEED = 5;
 const DASH_SPEED = 15;
 const JUMP_HEIGHT = 100;
@@ -727,8 +727,10 @@ const FightingGame: React.FC = () => {
     const anim = collisionData[target.state] || collisionData['idle'];
     const frameData = anim?.[String(currentFrame)]?.hurtBox || [];
     return frameData.map(box => {
-      let x = target.position.x + (target.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
-      let y = target.position.y + box.y;
+      //let x = target.position.x + (target.facing === 'left' ? CHARACTER_WIDTH - box.x - box.width : box.x);
+      //let y = target.position.y + box.y;
+      let x = box.x;
+      let y = box.y;
       return { x, y, width: box.width, height: box.height };
     });
   }
@@ -1433,11 +1435,17 @@ const FightingGame: React.FC = () => {
     return boxes.map((box, index) => {
       let localX = box.x;
       let localY = box.y;
-      let displayX = character.position.x + localX;
-      const displayY = character.position.y + localY;
-      if (character.facing === 'left') {
-        displayX = character.position.x + CHARACTER_WIDTH - (localX + box.width);
-      }
+
+      // 將局部坐標轉換為全局坐標
+      //let displayX = character.position.x + localX;
+      //const displayY = character.position.y + localY;
+      let displayX = localX;
+      const displayY = localY;
+
+      // 處理角色翻轉時的 X 軸調整
+      //if (character.facing === 'left') {
+      //  displayX = character.position.x + CHARACTER_WIDTH - (localX + box.width);
+      //}
       const borderColor = boxType === 'hit' ? 'red' : 'blue';
       return (
         <div
