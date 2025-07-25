@@ -20,7 +20,8 @@ const PngAnimationPlayer: React.FC<{
   state: string;
   setPlayer: (player: Object) => void;
   onFrameChange?: (frame: number) => void;
-}> = ({ source, facing, width, height, state, isPlayer1 = false, onFrameChange, setPlayer }) => {
+  onComplete?: () => void; // <--- 新增這一行
+}> = ({ source, facing, width, height, state, isPlayer1 = false, onFrameChange, setPlayer, onComplete }) => {
   const [currentFrame, setCurrentFrame] = useState(1);
   const [isLoaded, setIsLoaded] = useState(false);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,18 +71,39 @@ const PngAnimationPlayer: React.FC<{
   }, [source.path, source.state, state]);
 
   useEffect(() => {
-    // 設置動畫循環
+        // 檢查是否為單次播放動畫
+    const singlePlayAnimations = new Set([
+          'punch', 'kick', 'crouch_punch', 'crouch_kick', 
+          'jump_punch', 'jump_kick', 'hit', 'special_attack'
+      ]);
+      
+    const isSinglePlay = singlePlayAnimations.has(actionName);
+
     const interval = setInterval(() => {
       setCurrentFrame(prev => {
         const next = prev + 1;
         if (next > maxFrames) {
-          setPlayer(playerprev => ({ ...playerprev, state: 'idle' }));
-          // return 1;
+          // 如果是單次播放動畫，在結束時呼叫 onComplete
+          if (isSinglePlay) {
+            onComplete?.();
+          }
           return 1;
         }
         return next;
       });
     }, 1000 / source.frameRate);
+    // 設置動畫循環
+    // const interval = setInterval(() => {
+    //   setCurrentFrame(prev => {
+    //     const next = prev + 1;
+    //     // When the animation finishes, just loop back to the first frame.
+    //     // The parent component is responsible for changing the state from 'punch' to 'idle'.
+    //     if (next > maxFrames) {
+    //       return 1;
+    //     }
+    //     return next;
+    //   });
+    // }, 1000 / source.frameRate);
 
     frameIntervalRef.current = interval;
 
@@ -90,7 +112,8 @@ const PngAnimationPlayer: React.FC<{
         clearInterval(frameIntervalRef.current);
       }
     };
-  }, [maxFrames, source.frameRate, source.path, source.state]);
+}, [maxFrames, source.frameRate]); // Removed dependencies that could cause re-renders
+// }, [maxFrames, source.frameRate]); // Removed dependencies that could cause re-renders
 
   // 使用正確的路徑載入圖片
   const frameNumber = currentFrame.toString();
@@ -268,7 +291,8 @@ const AnimationPlayer: React.FC<{
   state?: string; // 添加 state 屬性來控制動畫狀態
   onFrameChange?: (frame: number) => void;
   setPlayer: (player: Object) => void;
-}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle', onFrameChange, setPlayer }) => {
+  onComplete?: () => void; // <--- 在這裡也新增 onComplete
+}> = ({ source, facing, width, height, isPlayer1 = false, state = 'idle', onFrameChange, setPlayer, onComplete }) => {
   if (source.type === 'png') {
     return (
       <PngAnimationPlayer
@@ -280,6 +304,7 @@ const AnimationPlayer: React.FC<{
         state={state}
         onFrameChange={onFrameChange}
         setPlayer={setPlayer}
+        onComplete={onComplete} // <--- 將 onComplete 傳遞下去
       />
     );
   } else if (source.type === 'spritesheet') {
