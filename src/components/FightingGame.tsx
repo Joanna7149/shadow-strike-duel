@@ -29,75 +29,14 @@ const FIGHTING_STAGE_CONSTANTS = {
   groundY: 0, // 地板位置（角色腳底對齊點）
 };
 
-// 視窗狀態接口
-interface Viewport {
-  width: number; // 當前視窗寬度
-  height: number; // 當前視窗高度
-  leftBoundary: number; // 鏡頭左邊界
-  rightBoundary: number; // 鏡頭右邊界
-  characterAreaLeft: number; // 角色活動左邊界
-  characterAreaRight: number; // 角色活動右邊界
-}
-
-// 計算視窗狀態
-const calculateViewport = (): Viewport => {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  
-  return {
-    width,
-    height,
-    leftBoundary: 0,
-    rightBoundary: Math.max(0, FIGHTING_STAGE_CONSTANTS.backgroundWidth - width),
-    characterAreaLeft: 0,
-    characterAreaRight: Math.max(0, FIGHTING_STAGE_CONSTANTS.backgroundWidth - CHARACTER_WIDTH)
-  };
-};
-
 // 計算角色初始位置（確保在可見範圍內）
-const calculateInitialPositions = (viewport: Viewport) => {
+const calculateInitialPositions = () => {
   const stageWidth = FIGHTING_STAGE_CONSTANTS.backgroundWidth;
-  const viewportWidth = viewport.width;
-  
-  // 如果舞台寬度小於視窗寬度，角色居中顯示
-  if (stageWidth <= viewportWidth) {
-    const centerX = viewportWidth / 2;
-    return {
-      player1X: centerX - CHARACTER_WIDTH - 100, // 左側
-      player2X: centerX + 100 // 右側
-    };
-  }
-  
-  // 如果舞台寬度大於視窗寬度，角色在視窗範圍內顯示
-  const margin = 100; // 角色距離視窗邊緣的距離
-  const availableWidth = viewportWidth - 2 * margin - CHARACTER_WIDTH * 2;
-  const spacing = Math.max(200, availableWidth / 3); // 角色間距
-  
+  const viewportWidth = window.innerWidth;
   return {
-    player1X: margin,
-    player2X: margin + CHARACTER_WIDTH + spacing
+    player1X: stageWidth * 0.1,
+    player2X: stageWidth * 0.9 - 2 * CHARACTER_WIDTH,
   };
-};
-
-// 鏡頭系統
-interface Camera {
-  x: number; // 鏡頭X座標（相對於背景圖）
-  targetX: number; // 目標X座標
-  smoothing: number; // 平滑移動係數
-}
-
-// 計算鏡頭目標位置（追蹤玩家與敵人的中間點）
-const calculateCameraTarget = (player1X: number, player2X: number, viewport: Viewport): number => {
-  const centerX = (player1X + player2X) / 2;
-  const viewportCenter = viewport.width / 2;
-  
-  // 鏡頭中心點應該追蹤兩人的中間點
-  let targetX = centerX - viewportCenter;
-  
-  // 限制鏡頭邊界
-  targetX = Math.max(viewport.leftBoundary, Math.min(viewport.rightBoundary, targetX));
-  
-  return targetX;
 };
 
 // 動畫配置系統
@@ -355,18 +294,15 @@ const FightingGame: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [gameDimensions, setGameDimensions] = useState(FIGHTING_STAGE_CONSTANTS); // 動態遊戲尺寸
   
-  // 視窗狀態
-  const [viewport, setViewport] = useState<Viewport>(calculateViewport());
-  
   // 計算初始位置
-  const initialPositions = calculateInitialPositions(viewport);
+  const initialPositions = calculateInitialPositions();
   
   // 鏡頭系統狀態
-  const [camera, setCamera] = useState<Camera>({
-    x: 0,
-    targetX: 0,
-    smoothing: 0.1 // 平滑移動係數
-  });
+  // const [camera, setCamera] = useState({
+  //   x: 0,
+  //   targetX: 0,
+  //   smoothing: 0.1 // 平滑移動係數
+  // });
   
   const setPlayerIdleState = (player) => {
 
@@ -421,16 +357,14 @@ const FightingGame: React.FC = () => {
   // RWD 縮放效果
   useEffect(() => {
     const updateDimensions = () => {
-      const newViewport = calculateViewport();
-      const newInitialPositions = calculateInitialPositions(newViewport);
-      setViewport(newViewport);
+      const newInitialPositions = calculateInitialPositions();
       setGameDimensions(FIGHTING_STAGE_CONSTANTS);
       
       // 更新角色位置以適應新的視窗大小
       setPlayer1(prev => ({
         ...prev,
         position: { 
-          x: Math.min(prev.position.x, newViewport.characterAreaRight), 
+          x: Math.min(prev.position.x, window.innerWidth - CHARACTER_WIDTH), 
           y: prev.position.y 
         }
       }));
@@ -438,7 +372,7 @@ const FightingGame: React.FC = () => {
       setPlayer2(prev => ({
         ...prev,
         position: { 
-          x: Math.min(prev.position.x, newViewport.characterAreaRight), 
+          x: Math.min(prev.position.x, window.innerWidth - CHARACTER_WIDTH), 
           y: prev.position.y 
         }
       }));
@@ -451,27 +385,6 @@ const FightingGame: React.FC = () => {
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
-
-  // 鏡頭更新邏輯
-  useEffect(() => {
-    if (gameState.gamePhase !== 'level-battle') return;
-
-    const updateCamera = () => {
-      // 計算鏡頭目標位置
-      const targetX = calculateCameraTarget(player1.position.x, player2.position.x, viewport);
-      
-      // 平滑移動鏡頭
-      setCamera(prev => ({
-        ...prev,
-        targetX,
-        x: prev.x + (targetX - prev.x) * prev.smoothing
-      }));
-    };
-
-    // 每幀更新鏡頭
-    const cameraInterval = setInterval(updateCamera, 16); // 60fps
-    return () => clearInterval(cameraInterval);
-  }, [gameState.gamePhase, player1.position.x, player2.position.x, viewport]);
 
   // Opening animation effect
   useEffect(() => {
@@ -828,8 +741,8 @@ const FightingGame: React.FC = () => {
     setPlayer1(prev => {
       // 考慮角色縮放後的實際大小
       const scaledWidth = CHARACTER_WIDTH;
-      const minX = viewport.characterAreaLeft;
-      const maxX = viewport.characterAreaRight - scaledWidth;
+      const minX = 0;
+      const maxX = window.innerWidth - scaledWidth;
       
       let newX = prev.position.x + (direction === 'left' ? -30 : 30);
       newX = Math.max(minX, Math.min(maxX, newX));
@@ -852,8 +765,8 @@ const FightingGame: React.FC = () => {
     setPlayer1(prev => {
       // 考慮角色縮放後的實際大小
       const scaledWidth = CHARACTER_WIDTH;
-      const minX = viewport.characterAreaLeft;
-      const maxX = viewport.characterAreaRight - scaledWidth;
+      const minX = 0;
+      const maxX = window.innerWidth - scaledWidth;
       
       let newX = prev.position.x + (direction === 'left' ? -100 : 100);
       newX = Math.max(minX, Math.min(maxX, newX));
@@ -1078,7 +991,7 @@ const FightingGame: React.FC = () => {
   };
 
   const resetPlayersForNewBattle = () => {
-    const newInitialPositions = calculateInitialPositions(viewport);
+    const newInitialPositions = calculateInitialPositions();
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
@@ -1177,7 +1090,7 @@ const FightingGame: React.FC = () => {
       isPaused: false,
       playerPhoto: null
     });
-    const newInitialPositions = calculateInitialPositions(viewport);
+    const newInitialPositions = calculateInitialPositions();
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
@@ -1535,7 +1448,7 @@ const FightingGame: React.FC = () => {
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
   
   // 工具函數：將局部 box 轉為全局座標，正確處理 facing
-  const renderBoxes = (boxes: Box[], character: Character, boxType: 'hit' | 'hurt', cameraX: number) => {
+  const renderBoxes = (boxes: Box[], character: Character, boxType: 'hit' | 'hurt') => {
     return boxes.map((box, index) => {
       let localX = box.x;
       let localY = box.y;
@@ -1562,7 +1475,7 @@ const FightingGame: React.FC = () => {
           key={`${boxType}-box-${character.id}-${index}`}
           style={{
             position: 'absolute',
-            left: `${displayX - cameraX}px`,
+            left: `${displayX}px`,
             bottom: `${displayY}px`,
             width: `${box.width}px`,
             height: `${box.height}px`,
@@ -1664,12 +1577,48 @@ const FightingGame: React.FC = () => {
       <div 
         className="absolute inset-0 overflow-hidden"
         style={{
-          width: `${viewport.width}px`,
-          height: `${viewport.height}px`,
-          transform: `translateX(-${camera.x}px)`,
-          transition: 'transform 0.1s ease-out'
+          width: `${window.innerWidth}px`,
+          height: `${window.innerHeight}px`
         }}
-      >
+      > {/* Controls */}
+      <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
+        <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
+          <span>A：向左</span>
+          <span>D：向右</span>
+          <span>W：跳躍</span>
+          <span>S：蹲下</span>
+          <span>J：拳</span>
+          <span>K：腳</span>
+          <span>L：必殺技</span>
+        </div>
+      </div>
+
+      {gameState.isPaused && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+          <Card className="p-8 text-center bg-black/80 border-white">
+            <h2 className="text-4xl font-bold text-white mb-4">遊戲暫停</h2>
+            <Button 
+              onClick={() => setGameState(prev => ({ ...prev, isPaused: false }))}
+              className="text-xl px-6 py-3"
+            >
+              繼續遊戲
+            </Button>
+          </Card>
+        </div>
+      )}
+     {showResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-0">
+          <div className="bg-white rounded-lg shadow-lg p-10 text-center">
+            <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
+            <button
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
+              onClick={handleResultModalClose}
+            >
+              {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
+            </button>
+          </div>
+        </div>
+      )}
         {/* 舞台背景 */}
         <div 
           className="absolute"
@@ -1681,7 +1630,7 @@ const FightingGame: React.FC = () => {
             width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
             height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
             left: 0,
-            top: `${Math.max(0, viewport.height - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
+            top: `${Math.max(0, window.innerHeight - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
           }}
         />
 
@@ -1711,8 +1660,8 @@ const FightingGame: React.FC = () => {
               isPlayer1={true}
               onFrameChange={setPlayer1CurrentFrame}
             />
-            {renderBoxes(getHurtBox(player1, player1CurrentFrame), player1, 'hurt', camera.x)}
-            {renderBoxes(getAttackHitBox(player1, player1CurrentFrame), player1, 'hit', camera.x)}
+            {renderBoxes(getHurtBox(player1, player1CurrentFrame), player1, 'hurt')}
+            {renderBoxes(getAttackHitBox(player1, player1CurrentFrame), player1, 'hit')}
         </div>
 
         {/* Player 2 (AI) */}
@@ -1739,8 +1688,8 @@ const FightingGame: React.FC = () => {
               onFrameChange={setPlayer2CurrentFrame}
               setPlayer={setPlayer2}
             />
-            {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt', camera.x)}
-            {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit', camera.x)}
+            {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt')}
+            {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')}
         </div>
 
         {/* Effects */}
@@ -1748,88 +1697,24 @@ const FightingGame: React.FC = () => {
           <div
             key={effect.id}
             className="absolute pointer-events-none"
-              style={{ 
-                left: effect.x - camera.x, 
-                bottom: `${effect.y}px` // 簡化Y軸定位
-              }}
+            style={{ 
+              left: effect.x, 
+              bottom: `${effect.y}px`
+            }}
           >
-            {effect.type === 'hit' && (
-              <div className="text-4xl animate-bounce">💥</div>
-            )}
-            {effect.type === 'special' && (
-              <div className="text-5xl animate-pulse text-yellow-400">🌟</div>
-            )}
-            {effect.type === 'lightning' && (
-              <div className="text-6xl animate-pulse text-blue-400">⚡</div>
-            )}
-            {effect.type === 'ko' && (
-              <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>
-            )}
-              {effect.type === 'jumpAttack' && (
-                <div className="text-4xl animate-bounce text-red-600">💥</div>
-              )}
-              {effect.type === 'crouchAttack' && (
-                <div className="text-4xl animate-bounce text-red-600">💥</div>
-              )}
-              {effect.type === 'dash' && (
-                <div className="text-4xl animate-pulse text-blue-400">💨</div>
-              )}
+            {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
+            {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
+            {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
+            {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
+            {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+            {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+            {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
           </div>
         ))}
-        </div>
       </div>
-
-      {/* Controls */}
-      <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
-        <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
-          <span>A：向左</span>
-          <span>D：向右</span>
-          <span>W：跳躍</span>
-          <span>S：蹲下</span>
-          <span>J：拳</span>
-          <span>K：腳</span>
-          <span>L：必殺技</span>
-        </div>
-      </div>
-
-      {gameState.isPaused && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-          <Card className="p-8 text-center bg-black/80 border-white">
-            <h2 className="text-4xl font-bold text-white mb-4">遊戲暫停</h2>
-            <Button 
-              onClick={() => setGameState(prev => ({ ...prev, isPaused: false }))}
-              className="text-xl px-6 py-3"
-            >
-              繼續遊戲
-            </Button>
-          </Card>
-        </div>
-      )}
-      {showResultModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-0">
-          <div className="bg-white rounded-lg shadow-lg p-10 text-center">
-            <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
-            <button
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
-              onClick={handleResultModalClose}
-            >
-              {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
-            </button>
-          </div>
-        </div>
-      )}
-      {collisionDataLoading && (
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 9999, color: 'yellow', background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 4 }}>
-          載入碰撞資料中...
-        </div>
-      )}
-      {collisionDataError && (
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 9999, color: 'red', background: 'rgba(0,0,0,0.7)', padding: 8, borderRadius: 4 }}>
-          {collisionDataError}
-        </div>
-      )}
     </div>
-  );
-};
+  </div>
+);
+}
 
 export default FightingGame;
