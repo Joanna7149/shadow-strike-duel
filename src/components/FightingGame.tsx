@@ -320,6 +320,7 @@ const FightingGame: React.FC = () => {
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
   const player1IdleStateRef = useRef(null);
+  const player1HitRegisteredRef = useRef(false);
   // const player2IdleStateRef = useRef(null);
 
   // RWD 縮放效果
@@ -673,7 +674,8 @@ function isCollision(rect1: Box, rect2: Box) {
           )
         );
   
-        if (collisionDetected) {
+        if (collisionDetected && !player1HitRegisteredRef.current) { 
+          player1HitRegisteredRef.current = true; // <-- 命中後將旗幟設為 true
           console.log("Collision detected!");
           // 避免重複觸發命中效果，可以添加一個旗幟或者只在特定幀觸發
           // 這裡簡單實現為直接觸發一次效果並扣血
@@ -690,9 +692,9 @@ function isCollision(rect1: Box, rect2: Box) {
           setTimeout(() => {
             setPlayer2(prev => ({ ...prev, state: 'idle' }));
           }, 500); // 讓 AI 有被擊中的動畫時間
-          setTimeout(() => {
-            setPlayer1(prev => ({ ...prev, state: 'idle' }));
-          }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
+          // setTimeout(() => {
+          //   setPlayer1(prev => ({ ...prev, state: 'idle' }));
+          // }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
         }
       }
     }
@@ -767,6 +769,7 @@ function isCollision(rect1: Box, rect2: Box) {
   // 2. 只有攻擊命中對手時才加能量，不能超過 maxEnergy
   const attackPlayer = () => {
     clearTimeout(player1IdleStateRef.current);
+    player1HitRegisteredRef.current = false;
     setPlayer1(prev => {
       return({ 
         ...prev, 
@@ -777,6 +780,8 @@ function isCollision(rect1: Box, rect2: Box) {
   // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
   const specialAttack = () => {
     if (player1.energy >= player1.maxEnergy) {
+      clearTimeout(player1IdleStateRef.current); // <--- 建議也加上
+      player1HitRegisteredRef.current = false; // <--- 新增這一行
       setPlayer1(prev => ({ 
         ...prev, 
         state: 'special',
@@ -1060,6 +1065,8 @@ function isCollision(rect1: Box, rect2: Box) {
     }, upTime);
   };
   const kickPlayer = () => {
+    clearTimeout(player1IdleStateRef.current); // <--- 建議也加上，確保一致性
+    player1HitRegisteredRef.current = false; // <--- 新增這一行
     setPlayer1(prev => ({
       ...prev,
       state: 'kick'
@@ -1084,6 +1091,7 @@ function isCollision(rect1: Box, rect2: Box) {
     const startX = player1.position.x;
     const targetX = Math.max(minX, Math.min(maxX, startX + jumpDistance));
     // 跳躍動畫
+    player1HitRegisteredRef.current = false;
     setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: startX, y: 0 } }));
     setTimeout(() => {
       setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
@@ -1096,6 +1104,7 @@ function isCollision(rect1: Box, rect2: Box) {
 };
 
   const crouchAttack = (attackType: 'punch' | 'kick') => {
+    player1HitRegisteredRef.current = false;
     const state = attackType === 'punch' ? 'crouch_punch' : 'crouch_kick';
     setPlayer1(prev => ({
       ...prev,
