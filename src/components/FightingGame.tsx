@@ -603,7 +603,7 @@ function getHurtBox(target: Character, currentFrame: number): Box[] {
   const frameData = anim?.[String(currentFrame)]?.hurtBox || []; // 取得當前幀的 hurtBox
   return frameData.map(box => {
     // 計算基於角色朝向的局部 X 座標
-        const localX = target.facing === 'left'
+        const localX = target.facing === 'right'
     // const transformedX = target.facing === 'left'
       ? (CHARACTER_WIDTH - box.x - box.width) // 翻轉 X 座標
       : box.x;
@@ -622,8 +622,11 @@ function getAttackHitBox(attacker: Character, currentFrame: number): Box[] {
   const anim = collisionData[attacker.state] || collisionData['idle'];
   const frameData = anim?.[String(currentFrame)]?.hitBox || [];
   return frameData.map(box => {
-    // 計算基於角色朝向的局部 X 座標
-    const localX = attacker.facing === 'left'   
+    // 根據角色朝向調整局部 X 座標
+    // 如果 collision_data.json 是面向左邊的座標，
+    // 那麼當 attacker.facing === 'left' 時，直接使用 box.x
+    // 當 attacker.facing === 'right' 時，才需要翻轉 x 座標
+    const localX = attacker.facing === 'right'   
     // const transformedX = attacker.facing === 'left'
       ? (CHARACTER_WIDTH - box.x - box.width) // 翻轉 X 座標
       : box.x;
@@ -651,7 +654,8 @@ function isCollision(rect1: Box, rect2: Box) {
   useEffect(() => {
     // 只有在玩家處於攻擊狀態時才進行碰撞檢測
     const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player1.state);
-  
+    const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player2.state);
+    
     if (
       gameState.gamePhase === 'level-battle' &&
       !gameState.isPaused &&
@@ -686,6 +690,9 @@ function isCollision(rect1: Box, rect2: Box) {
           setTimeout(() => {
             setPlayer2(prev => ({ ...prev, state: 'idle' }));
           }, 500); // 讓 AI 有被擊中的動畫時間
+          setTimeout(() => {
+            setPlayer1(prev => ({ ...prev, state: 'idle' }));
+          }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
         }
       }
     }
@@ -999,7 +1006,7 @@ function isCollision(rect1: Box, rect2: Box) {
     setGameState({
       timeLeft: 60,
       currentLevel: 1,
-      gamePhase: 'cover',
+      gamePhase: 'level-battle',
       isPaused: false,
       playerPhoto: null
     });
