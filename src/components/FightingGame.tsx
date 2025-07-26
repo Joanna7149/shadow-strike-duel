@@ -14,13 +14,13 @@ const CHARACTER_WIDTH = 512;
 const CHARACTER_HEIGHT = 512;
 const MOVE_SPEED = 5;
 const DASH_SPEED = 15;
-const JUMP_HEIGHT = 100;
-const JUMP_DURATION = 500; // 毫秒
+const JUMP_HEIGHT = 200;
+const JUMP_DURATION = 800; // 毫秒
 
 // 舞台固定常數（遊戲世界的物理尺寸）
 const FIGHTING_STAGE_CONSTANTS = {
   // 舞台背景尺寸
-  backgroundWidth: 1600, // 背景圖寬度（整個可滾動舞台）
+  backgroundWidth: 1800, // 背景圖寬度（整個可滾動舞台）
   backgroundHeight: 1080, // 舞台高度
   groundY: 0, // 地板位置（角色腳底對齊點）
 };
@@ -172,14 +172,46 @@ function getAnimationSource(state: string, useSpritesheet: boolean = false): Ani
       state: state
     };
   } else {
-    // 對於 PNG 模式，根據狀態返回對應的配置
-    const pngConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png];
-    if (pngConfig) {
-      return pngConfig;
-    }
-    // 如果找不到對應的狀態，返回 idle
-    return ANIMATION_CONFIGS.png.idle;
+    // 根據狀態從設定檔中找到對應的動畫基本設定 (例如 'punch', 'idle' 等)
+    // 如果找不到，則預設為 'idle'
+    const baseConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png] || ANIMATION_CONFIGS.png.idle;
+    
+    // 返回一個新的 source 物件，其中包含為主角 (MainHero) 組合的完整路徑
+    return {
+      ...baseConfig, // 複製 type, frameRate 等屬性
+      path: `MainHero/animations/${baseConfig.path}` // 將角色資料夾和 'animations' 子資料夾加到路徑前面
+    };
   }
+    
+  //   // 對於 PNG 模式，根據狀態返回對應的配置
+  //   const pngConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png];
+  //   if (pngConfig) {
+  //     return pngConfig;
+  //   }
+  //   // 如果找不到對應的狀態，返回 idle
+  //   return ANIMATION_CONFIGS.png.idle;
+  // }
+}
+
+// 新增：根據關卡獲取對手角色動畫來源
+function getEnemyAnimationSource(state: string, currentLevel: number): AnimationSource {
+  const enemyFolders = {
+    1: 'Enemy01',
+    2: 'Enemy02',
+    3: 'Enemy03'
+  };
+
+  const enemyFolder = enemyFolders[currentLevel as keyof typeof enemyFolders] || 'Enemy01';
+
+  // 核心修正：確保對手也使用 ANIMATION_CONFIGS 來查找正確的路徑
+  const baseConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png] || ANIMATION_CONFIGS.png.idle;
+
+  return {
+    type: 'png' as const,
+    // 這裡使用 baseConfig.path 而不是 state
+    path: `${enemyFolder}/animations/${baseConfig.path}`,
+    frameRate: baseConfig.frameRate || 10
+  };
 }
 
 interface Character {
@@ -191,7 +223,7 @@ interface Character {
   maxEnergy: number;
   position: { x: number; y: number };
   facing: 'left' | 'right';
-  state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead';
+  state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead' | 'walk_forward' | 'walk_backward';
   hitBox: { x: number; y: number; width: number; height: number };
   hurtBox: { x: number; y: number; width: number; height: number };
 }
@@ -221,21 +253,24 @@ const LEVELS = [
     name: '第一關: 燃燒倉庫 火爆拳', 
     boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
-    description: '在燃燒的倉庫中，你遇到了火爆拳...'
+    description: '在燃燒的倉庫中，你遇到了火爆拳...',
+    bgImage: '/statics/backgrounds/Stage1/stage1.png'
   },
   { 
     id: 2, 
     name: '第二關: 廢棄月台 蛇鞭女', 
     boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
-    description: '廢棄的月台上，蛇鞭女正等著你...'
+    description: '廢棄的月台上，蛇鞭女正等著你...',
+    bgImage: '/statics/backgrounds/Stage2/stage2.png'
   },
   { 
     id: 3, 
     name: '第三關: 虛空之塔 心控王', 
     boss: '心控王',
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
-    description: '最終戰！虛空之塔的心控王現身...'
+    description: '最終戰！虛空之塔的心控王現身...',
+    bgImage: '/statics/backgrounds/Stage3/stage3.png'
   }
 ];
 
@@ -281,7 +316,7 @@ const FightingGame: React.FC = () => {
   };
 
   // 背景圖片路徑
-  const backgroundImage = '/src/statics/backgrounds/stage1.png';
+  // const backgroundImage = '/statics/backgrounds/Stage1/stage1.png';
   
   // 1. 玩家初始 energy=0
   const [player1, setPlayer1] = useState<Character>({
@@ -577,7 +612,17 @@ const FightingGame: React.FC = () => {
   useEffect(() => {
     setCollisionDataLoading(true);
     setCollisionDataError(null);
-    fetch('src/statics/characters/MainHero/collision_data.json')
+    
+    // 根據當前關卡選擇對應的碰撞資料檔案
+    const enemyFolders = {
+      1: 'Enemy01',
+      2: 'Enemy02', 
+      3: 'Enemy03'
+    };
+    const enemyFolder = enemyFolders[gameState.currentLevel as keyof typeof enemyFolders] || 'Enemy01';
+    
+    // fetch(`src/statics/characters/${enemyFolder}/collision_data.json`)
+    fetch(`/statics/characters/${enemyFolder}/collision_data.json`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -591,7 +636,7 @@ const FightingGame: React.FC = () => {
         setCollisionDataLoading(false);
         setCollisionDataError('載入 collision_data.json 失敗: ' + err.message);
       });
-  }, []);
+  }, [gameState.currentLevel]); // 當關卡改變時重新載入碰撞資料
 
   // 3. 幀追蹤狀態
   const [player1CurrentFrame, setPlayer1CurrentFrame] = useState(1);
@@ -713,6 +758,13 @@ function isCollision(rect1: Box, rect2: Box) {
 
   const movePlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
+      // 判斷是否面朝對手
+      const isMovingTowardsOpponent = 
+        (direction === 'right' && prev.facing === 'right' && prev.position.x < player2.position.x) ||
+        (direction === 'left' && prev.facing === 'left' && prev.position.x > player2.position.x);
+  
+      // 根據是否朝向對手來決定動畫狀態
+      const newState = isMovingTowardsOpponent ? 'walk_forward' : 'walk_backward';
       // 考慮角色縮放後的實際大小
       const scaledWidth = CHARACTER_WIDTH;
       const minX = 0;
@@ -728,7 +780,7 @@ function isCollision(rect1: Box, rect2: Box) {
           x: newX
       },
       facing: direction,
-        state: 'walk'
+        state: newState // 使用新的狀態
       };
     });
     player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
@@ -798,16 +850,17 @@ function isCollision(rect1: Box, rect2: Box) {
     if (distance > 80) {
       // Move closer
       const direction = player2.position.x > player1.position.x ? 'left' : 'right';
-      setPlayer2(prev => ({
-        ...prev,
-        position: {
-          ...prev.position,
-          x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(750, prev.position.x + 35)
-        },
-        facing: direction === 'left' ? 'left' : 'right',
-        state: 'walk'
-      }));
-    } else {
+    // 【修改這裡】AI 永遠是向著玩家移動，所以是 walk_forward
+    setPlayer2(prev => ({
+      ...prev,
+      position: {
+        ...prev.position,
+        x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(window.innerWidth - CHARACTER_WIDTH, prev.position.x + 35)
+      },
+      facing: direction,
+      state: 'walk_forward' // 直接設定為 walk_forward
+    }));
+  } else {
       // 更高機率攻擊
       if (action < 0.8) {
         // Attack
@@ -903,6 +956,31 @@ function isCollision(rect1: Box, rect2: Box) {
           lastResult: 'win'
         }));
         resetPlayersForNewBattle();
+        // 重新載入新關卡的碰撞資料
+        setCollisionDataLoading(true);
+        setCollisionDataError(null);
+        const enemyFolders = {
+          1: 'Enemy01',
+          2: 'Enemy02', 
+          3: 'Enemy03'
+        };
+        const nextLevel = gameState.currentLevel + 1;
+        const enemyFolder = enemyFolders[nextLevel as keyof typeof enemyFolders] || 'Enemy01';
+        
+        fetch(`src/statics/characters/${enemyFolder}/collision_data.json`)
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then(data => {
+            setCollisionData(data);
+            setCollisionDataLoading(false);
+          })
+          .catch((err) => {
+            setCollisionData(null);
+            setCollisionDataLoading(false);
+            setCollisionDataError('載入 collision_data.json 失敗: ' + err.message);
+          });
       }
     } else {
       setGameState(prev => ({
@@ -1492,7 +1570,7 @@ function isCollision(rect1: Box, rect2: Box) {
         <div 
           className="absolute"
           style={{
-            backgroundImage: `url(${backgroundImage})`,
+            backgroundImage: `url(${currentLevelData.bgImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center bottom',
             backgroundRepeat: 'no-repeat',
@@ -1549,7 +1627,7 @@ function isCollision(rect1: Box, rect2: Box) {
     }}
   >
     <AnimationPlayer
-      source={getAnimationSource(player2.state)}
+      source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
       facing={player2.facing}
       state={player2.state}
       width={CHARACTER_WIDTH}
