@@ -231,7 +231,7 @@ interface Character {
 interface GameState {
   timeLeft: number;
   currentLevel: number;
-  gamePhase: 'cover' | 'opening-animation' | 'character-setup' | 'level-battle' | 'ending-animation' | 'game-complete';
+  gamePhase: 'cover' | 'opening-animation' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'game-complete';
   isPaused: boolean;
   playerPhoto: string | null;
   lastResult?: 'win' | 'lose' | null;
@@ -299,7 +299,9 @@ const FightingGame: React.FC = () => {
     lastResult: null
   });
 
-  const [collisionData, setCollisionData] = useState<CharacterCollisionData | null>(null);
+  // const [collisionData, setCollisionData] = useState<CharacterCollisionData | null>(null);
+  const [player1CollisionData, setPlayer1CollisionData] = useState<CharacterCollisionData | null>(null);
+  const [player2CollisionData, setPlayer2CollisionData] = useState<CharacterCollisionData | null>(null);
   const [collisionDataLoading, setCollisionDataLoading] = useState(true);
   const [collisionDataError, setCollisionDataError] = useState<string | null>(null);
 
@@ -356,6 +358,7 @@ const FightingGame: React.FC = () => {
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
   const player1IdleStateRef = useRef(null);
   const player1HitRegisteredRef = useRef(false);
+  const aiActionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // <-- 【新增】這個 Ref
   // const player2IdleStateRef = useRef(null);
 
   // RWD 縮放效果
@@ -461,191 +464,214 @@ const FightingGame: React.FC = () => {
     });
   };
   // Battle controls
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
-      const key = e.key.toLowerCase();
-      setPressedKeys(prev => {
-        const next = new Set(prev);
-        next.add(key);
-        return next;
-      });
-      // 更新 keyBuffer
-      keyBufferRef.current.push({ key, time: Date.now() });
-      if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
+     // [NEW] 簡化的 handleKeyDown，只負責更新 pressedKeys 和處理 dash
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+    const key = e.key.toLowerCase();
 
-      // 跳躍中攻擊判斷
-      if (player1.state === 'jump') {
-        if (key === 'j') {
-          setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
-          return;
-        }
-        if (key === 'k') {
-          setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
-          return;
-        }
-      }
+    setPressedKeys(prev => {
+      const newKeys = new Set(prev);
+      newKeys.add(key);
+      return newKeys;
+    });
 
-      // 組合鍵偵測
-      const keys = new Set(pressedKeys);
-      keys.add(key);
-      // handleKeyDown 組合鍵偵測區
-      // 跳躍攻擊
-      if (keys.has('w') && keys.has('j')) {
-        jumpAttack('punch');
-        return;
-      }
-      if (keys.has('w') && keys.has('k')) {
-        jumpAttack('kick');
-        return;
-      }
-      if (keys.has('w') && keys.has('l')) {
-        jumpAttack('special');
-        return;
-      }
-      // 蹲下攻擊
-      if (keys.has('s') && keys.has('j')) {
-        crouchAttack('punch');
-        return;
-      }
-      if (keys.has('s') && keys.has('k')) {
-        crouchAttack('kick');
-        return;
-      }
-      // 左跳/右跳
-      if (keys.has('a') && keys.has('w')) {
-        jumpPlayer();
-        return;
-      }
-      if (keys.has('d') && keys.has('w')) {
-        jumpPlayer();
-        return;
-      }
-      // D+D dash
-      if (key === 'd') {
-        const now = Date.now();
-        const recentDs = keyBufferRef.current.filter(
-          k => k.key === 'd' && now - k.time < 300
-        );
-        if (recentDs.length >= 2) {
-          dashPlayer('right');
-          return;
-        }
-      }
-      if (key === 'a') {
-        const now = Date.now();
-        const recentAs = keyBufferRef.current.filter(
-          k => k.key === 'a' && now - k.time < 300
-        );
-        if (recentAs.length >= 2) {
-          dashPlayer('left');
-          return;
-        }
-      }
-      // 單鍵行為
-      switch (key) {
-        case 'a':
-          movePlayer('left');
-          break;
-        case 'd':
-          movePlayer('right');
-          break;
-        case 's':
-          setPlayer1(prev => ({ ...prev, state: 'crouch' }));
-          break;
-        case 'w':
-          jumpPlayer();
-          break;
-        case 'j':
-          attackPlayer();
-          break;
-        case 'k':
-          kickPlayer();
-          break;
-        case 'l':
-          specialAttack();
-          break;
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      setPressedKeys(prev => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-      
-      // 當釋放S鍵時，如果沒有其他動作，回到idle狀態
-      if (key === 's') {
-        setPlayer1(prev => {
-          // 檢查是否還有其他按鍵被按下
-          const remainingKeys = new Set(pressedKeys);
-          remainingKeys.delete('s');
-          
-          // 如果沒有其他按鍵，且當前是蹲下狀態，回到idle
-          if (remainingKeys.size === 0 && prev.state === 'crouch') {
-            return { ...prev, state: 'idle' };
-          }
-          return prev;
-        });
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [gameState, player1, pressedKeys]);
+    keyBufferRef.current.push({ key, time: Date.now() });
+    if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
 
-  // AI Logic
-  useEffect(() => {
-    if (gameState.gamePhase === 'level-battle' && !gameState.isPaused) {
-      const aiInterval = setInterval(() => {
-        aiAction();
-      }, 400 + Math.random() * 300); // 更頻繁
-      return () => clearInterval(aiInterval);
+    const isWalking = player1.state === 'walk_forward' || player1.state === 'walk_backward';
+
+  if (!isWalking) {
+    if (key === 'd') {
+      const now = Date.now();
+      const recentDs = keyBufferRef.current.filter(k => k.key === 'd' && now - k.time < 300);
+      if (recentDs.length >= 2) dashPlayer('right');
     }
-  }, [gameState.gamePhase, gameState.isPaused, player1, player2]);
+    if (key === 'a') {
+      const now = Date.now();
+      const recentAs = keyBufferRef.current.filter(k => k.key === 'a' && now - k.time < 300);
+      if (recentAs.length >= 2) dashPlayer('left');
+    }
+   }
+  };
+// [NEW] 簡化的 handleKeyUp，只負責從 pressedKeys 中移除按鍵
+const handleKeyUp = (e: KeyboardEvent) => {
+  const key = e.key.toLowerCase();
+  setPressedKeys(prev => {
+    const newKeys = new Set(prev);
+    newKeys.delete(key);
+    return newKeys;
+  });
+};
 
- 
+// [NEW] 此 useEffect 只負責綁定/解綁事件監聽器
+useEffect(() => {
+  // 每次 player1.state 改變，都重新註冊 handleKeyDown，以捕獲最新的 state
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+  return () => {
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+  };
+}, [gameState.gamePhase, gameState.isPaused, player1.state]); // <-- 【重要】在這裡加入 player1.state
+
+// 檔案: FightingGame.tsx
+
+// 【修改後】請用此完整版本替換舊的 useEffect
+useEffect(() => {
+  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+
+  const canPlayerAct = () => {
+    // 將所有單次攻擊動畫都視為不可中斷，直到動畫播放完畢
+    const uninterruptibleStates = [
+      'hit', 'dead', 'victory', 'special_attack', 
+      'jump_punch', 'jump_kick', 
+      'punch', 'kick', 'crouch_punch', 'crouch_kick'
+    ];
+    return !uninterruptibleStates.includes(player1.state);
+  };
+
+  if (!canPlayerAct()) return;
+
+  // 【新增】1. 優先處理「跳躍中」的攻擊邏輯
+  if (player1.state === 'jump') {
+    if (pressedKeys.has('j')) {
+      setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
+      return; // 執行後中斷，不處理後續地面邏輯
+    }
+    if (pressedKeys.has('k')) {
+      setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
+      return;
+    }
+    // 如果正在跳躍但沒有攻擊，也要 return，防止執行地面邏輯
+    return;
+  }
+
+  // 2. 處理「地面」組合鍵：蹲下相關 (S + ...)
+  if (pressedKeys.has('s')) {
+    if (pressedKeys.has('j')) { crouchAttack('punch'); } 
+    else if (pressedKeys.has('k')) { crouchAttack('kick'); } 
+    else { setPlayer1(prev => (prev.state !== 'crouch' ? { ...prev, state: 'crouch' } : prev)); }
+    return;
+  }
+
+  // 3. 處理「地面」組合鍵：跳躍相關 (W + ...)
+  if (pressedKeys.has('w')) {
+    if (pressedKeys.has('j')) { jumpAttack('punch'); } 
+    else if (pressedKeys.has('k')) { jumpAttack('kick'); } 
+    else if (pressedKeys.has('l')) { jumpAttack('special'); } 
+    else { jumpPlayer(); }
+    return;
+  }
+  
+  // 4. 處理「地面」單鍵攻擊
+  if (pressedKeys.has('j')) { attackPlayer(); return; }
+  if (pressedKeys.has('k')) { kickPlayer(); return; }
+  if (pressedKeys.has('l')) { specialAttack(); return; }
+
+  // 5. 處理「地面」移動
+  if (pressedKeys.has('a') || pressedKeys.has('d')) {
+    setPlayer1(prev => {
+      // Part A: 無論如何都先計算新的位置
+      const direction = pressedKeys.has('a') ? 'left' : 'right';
+      const newX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
+      const minX = 0;
+      const maxX = window.innerWidth - CHARACTER_WIDTH;
+      const clampedX = Math.max(minX, Math.min(maxX, newX));
+
+      // Part B: 只有在角色不處於走路狀態時，才更新為走路狀態
+      const isAlreadyWalking = prev.state === 'walk_forward' || prev.state === 'walk_backward';
+      let newState = prev.state; // 預設保持當前狀態
+      if (!isAlreadyWalking) {
+        // 根據移動方向和角色朝向，決定是前進還是後退動畫
+        newState = (prev.facing === direction) ? 'walk_forward' : 'walk_backward';
+      }
+
+      // Part C: 一次性更新位置和狀態
+      return {
+        ...prev,
+        position: { ...prev.position, x: clampedX },
+        state: newState
+      };
+    });
+  } else {
+    // 6. 若無任何動作，則恢復「閒置」狀態
+    setPlayer1(prev => {
+      const stoppableStates = ['walk_forward', 'walk_backward', 'crouch'];
+      if (stoppableStates.includes(prev.state)) {
+        return { ...prev, state: 'idle' };
+      }
+      return prev;
+    });
+  }
+}, [pressedKeys, gameState.gamePhase, gameState.isPaused, player1.state]);
+
   useEffect(() => {
-    setCollisionDataLoading(true);
-    setCollisionDataError(null);
-    
-    // 根據當前關卡選擇對應的碰撞資料檔案
-    const enemyFolders = {
-      1: 'Enemy01',
-      2: 'Enemy02', 
-      3: 'Enemy03'
-    };
+    fetch(`/statics/characters/MainHero/collision_data.json`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status} for MainHero`);
+        return res.json();
+      })
+      .then(data => setPlayer1CollisionData(data))
+      .catch(err => setCollisionDataError('載入玩家碰撞資料失敗: ' + err.message));
+  }, []); // 空依賴陣列，確保只執行一次
+  
+  // 【修改後 - Part 2】修改原本的 useEffect，讓它專門載入敵人的碰撞資料
+  useEffect(() => {
+    const enemyFolders = { 1: 'Enemy01', 2: 'Enemy02', 3: 'Enemy03' };
     const enemyFolder = enemyFolders[gameState.currentLevel as keyof typeof enemyFolders] || 'Enemy01';
     
-    // fetch(`src/statics/characters/${enemyFolder}/collision_data.json`)
     fetch(`/statics/characters/${enemyFolder}/collision_data.json`)
       .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${enemyFolder}`);
         return res.json();
       })
       .then(data => {
-        setCollisionData(data);
-        setCollisionDataLoading(false);
+        setPlayer2CollisionData(data); // <-- 存入 player2 專用的 state
       })
       .catch((err) => {
-        setCollisionData(null);
-        setCollisionDataLoading(false);
-        setCollisionDataError('載入 collision_data.json 失敗: ' + err.message);
+        setPlayer2CollisionData(null);
+        setCollisionDataError(`載入敵人碰撞資料失敗: ` + err.message);
       });
-  }, [gameState.currentLevel]); // 當關卡改變時重新載入碰撞資料
+  }, [gameState.currentLevel]);
+  
+ 
+  // useEffect(() => {
+  //   setCollisionDataLoading(true);
+  //   setCollisionDataError(null);
+    
+  //   // 根據當前關卡選擇對應的碰撞資料檔案
+  //   const enemyFolders = {
+  //     1: 'Enemy01',
+  //     2: 'Enemy02', 
+  //     3: 'Enemy03'
+  //   };
+  //   const enemyFolder = enemyFolders[gameState.currentLevel as keyof typeof enemyFolders] || 'Enemy01';
+    
+  //   // fetch(`src/statics/characters/${enemyFolder}/collision_data.json`)
+  //   fetch(`/statics/characters/${enemyFolder}/collision_data.json`)
+  //     .then(res => {
+  //       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  //       return res.json();
+  //     })
+  //     .then(data => {
+  //       setCollisionData(data);
+  //       setCollisionDataLoading(false);
+  //     })
+  //     .catch((err) => {
+  //       setCollisionData(null);
+  //       setCollisionDataLoading(false);
+  //       setCollisionDataError('載入 collision_data.json 失敗: ' + err.message);
+  //     });
+  // }, [gameState.currentLevel]); // 當關卡改變時重新載入碰撞資料
 
   // 3. 幀追蹤狀態
   const [player1CurrentFrame, setPlayer1CurrentFrame] = useState(1);
   const [player2CurrentFrame, setPlayer2CurrentFrame] = useState(1);
 
 // 4. 動態取得 hitbox/hurtbox（支援 facing）
-function getHurtBox(target: Character, currentFrame: number): Box[] {
-  if (!collisionData) return [];
-  const anim = collisionData[target.state] || collisionData['idle'];  // 取得當前狀態的 hurtBox
+function getHurtBox(target: Character, currentFrame: number, data: CharacterCollisionData | null): Box[] {
+  if (!data) return []; // <-- 正確使用傳入的 data
+  const anim = data[target.state as keyof typeof data] || data['idle'];
   const frameData = anim?.[String(currentFrame)]?.hurtBox || []; // 取得當前幀的 hurtBox
   return frameData.map(box => {
     // 計算基於角色朝向的局部 X 座標
@@ -663,9 +689,9 @@ function getHurtBox(target: Character, currentFrame: number): Box[] {
     return { x: globalX, y: globalY, width: box.width, height: box.height };
   });
 }
-function getAttackHitBox(attacker: Character, currentFrame: number): Box[] {
-  if (!collisionData) return [];
-  const anim = collisionData[attacker.state] || collisionData['idle'];
+function getAttackHitBox(attacker: Character, currentFrame: number, data: CharacterCollisionData | null): Box[] {
+  if (!data) return []; // <-- 正確使用傳入的 data
+  const anim = data[attacker.state as keyof typeof data] || data['idle'];
   const frameData = anim?.[String(currentFrame)]?.hitBox || [];
   return frameData.map(box => {
     // 根據角色朝向調整局部 X 座標
@@ -706,10 +732,13 @@ function isCollision(rect1: Box, rect2: Box) {
       gameState.gamePhase === 'level-battle' &&
       !gameState.isPaused &&
       isPlayer1Attacking &&
-      collisionData // 確保碰撞數據已載入
+      player1CollisionData && // 【修改後】確認玩家1的碰撞資料已載入
+      player2CollisionData    // 【修改後】確認玩家2的碰撞資料已載入
     ) {
-      const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame);
-      const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame);
+      const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame, player1CollisionData); // <-- 傳入 p1 data
+      const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame, player2CollisionData);     // <-- 傳入 p2 data
+      // const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame);
+      // const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame);
   
       // 確保有碰撞框才進行判斷
       if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
@@ -746,14 +775,15 @@ function isCollision(rect1: Box, rect2: Box) {
   }, [
     player1.state,
     player1CurrentFrame,
-    player1.position.x, // 攻擊時位置可能變動
+    player1.position, // 建議監聽整個 position 物件
     player1.facing,
-    player2.state, // 偵測對手狀態變動 (hurtbox)
+    player2.state,
     player2CurrentFrame,
-    player2.position.x, // 對手位置變動
+    player2.position,
     gameState.gamePhase,
     gameState.isPaused,
-    collisionData // 確保碰撞數據已載入
+    player1CollisionData, // 正確的依賴項
+    player2CollisionData  // 正確的依賴項
   ]);
 
   // 請用這段程式碼完整替換掉舊的 movePlayer 函式
@@ -784,41 +814,7 @@ const movePlayer = (direction: 'left' | 'right') => {
       state: newState 
     };
   });
-
-  // 清除計時器，避免走路動畫被過早切回 idle
-  if (player1IdleStateRef.current) clearTimeout(player1IdleStateRef.current);
-  player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
 };
-  // const movePlayer = (direction: 'left' | 'right') => {
-  //   setPlayer1(prev => {
-  //     // 判斷是否面朝對手
-  //     const isMovingTowardsOpponent = 
-  //       (direction === 'right' && prev.facing === 'right' && prev.position.x < player2.position.x) ||
-  //       (direction === 'left' && prev.facing === 'left' && prev.position.x > player2.position.x);
-  
-  //     // 根據是否朝向對手來決定動畫狀態
-  //     const newState = isMovingTowardsOpponent ? 'walk_forward' : 'walk_backward';
-  //     // 考慮角色縮放後的實際大小
-  //     const scaledWidth = CHARACTER_WIDTH;
-  //     const minX = 0;
-  //     const maxX = window.innerWidth - scaledWidth;
-      
-  //     let newX = prev.position.x + (direction === 'left' ? -30 : 30);
-  //     newX = Math.max(minX, Math.min(maxX, newX));
-      
-  //     return {
-  //     ...prev,
-  //     position: {
-  //       ...prev.position,
-  //         x: newX
-  //     },
-  //     facing: direction,
-  //       state: newState // 使用新的狀態
-  //     };
-  //   });
-  //   player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
-  // };
-
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
@@ -879,49 +875,28 @@ const movePlayer = (direction: 'left' | 'right') => {
     if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
     const distance = Math.abs(player2.position.x - player1.position.x);
     const action = Math.random();
-
-    if (distance > 80) {
-      // Move closer
+  
+    if (distance > 120) {
       const direction = player2.position.x > player1.position.x ? 'left' : 'right';
-    // 【修改這裡】AI 永遠是向著玩家移動，所以是 walk_forward
-    setPlayer2(prev => ({
-      ...prev,
-      position: {
-        ...prev.position,
-        x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(window.innerWidth - CHARACTER_WIDTH, prev.position.x + 35)
-      },
-      facing: direction,
-      state: 'walk_forward' // 直接設定為 walk_forward
-    }));
-  } else {
-      // 更高機率攻擊
+      setPlayer2(prev => ({
+        ...prev,
+        position: { ...prev.position, x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(window.innerWidth - CHARACTER_WIDTH, prev.position.x + 35) },
+        facing: direction,
+        state: 'walk_forward'
+      }));
+    } else {
       if (action < 0.8) {
-        // Attack
         setPlayer2(prev => ({ ...prev, state: 'attacking' }));
-        if (player1.state !== 'defending') {
-          setPlayer1(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - 5),
-            state: 'hit'
-          }));
-          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
-          addEffect('hit', player1.position.x, player1.position.y);
-        }
-      } else if (action < 0.98 && player2.energy >= 50) {
-        // Special
-        setPlayer2(prev => ({ 
-          ...prev, 
-          state: 'special',
-          energy: Math.max(0, prev.energy - 50)
-        }));
-        addEffect('special', player2.position.x, player2.position.y);
       } else {
         setPlayer2(prev => ({ ...prev, state: 'defending' }));
       }
     }
-    setTimeout(() => {
-      setPlayer2(prev => ({ ...prev, state: 'idle' }));
-      // player1IdleStateRef.current = setPlayer1(prev => ({ ...prev, state: prev.health > 0 ? 'idle' : prev.state }));
+    
+    // 【修改後】將 setTimeout 的 ID 存入 ref
+    aiActionTimeoutRef.current = setTimeout(() => {
+      if (gameState.gamePhase === 'level-battle') {
+          setPlayer2(prev => (prev.health > 0 ? {...prev, state: 'idle'} : prev));
+      }
     }, 400);
   };
 
@@ -949,6 +924,8 @@ const movePlayer = (direction: 'left' | 'right') => {
 
   // 在 handleBattleEnd 顯示提示
   const handleBattleEnd = () => {
+    // 【新增】立即改變遊戲階段，凍結所有動作
+    setGameState(prev => ({ ...prev, gamePhase: 'round-over' }));
     let winner = '';
     if (player1.health > player2.health) {
       winner = 'player1';
@@ -956,8 +933,8 @@ const movePlayer = (direction: 'left' | 'right') => {
       winner = 'player2';
     }
 
-    setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'death' }));
-    setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'death' }));
+    setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'dead' }));
+    setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'dead' }));
     addEffect('ko', 400, 200);
 
     setTimeout(() => {
@@ -994,43 +971,19 @@ const movePlayer = (direction: 'left' | 'right') => {
   const handleResultModalClose = () => {
     setShowResultModal(false);
     if (resultType === 'win') {
-      // 只有在第三關勝利時才進入結局動畫
-      if (gameState.currentLevel === 3 && gameState.gamePhase === 'level-battle') {
-        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation', lastResult: 'win' }));
+      // 【修改後】只判斷關卡數是否為 3
+      if (gameState.currentLevel === 3) {
+        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation', lastResult: 'win', isPaused: false }));
       } else {
         setGameState(prev => ({
           ...prev,
           currentLevel: prev.currentLevel + 1,
           timeLeft: 60,
           gamePhase: 'level-battle',
-          lastResult: 'win'
+          lastResult: 'win',
+          isPaused: false
         }));
         resetPlayersForNewBattle();
-        // 重新載入新關卡的碰撞資料
-        setCollisionDataLoading(true);
-        setCollisionDataError(null);
-        const enemyFolders = {
-          1: 'Enemy01',
-          2: 'Enemy02', 
-          3: 'Enemy03'
-        };
-        const nextLevel = gameState.currentLevel + 1;
-        const enemyFolder = enemyFolders[nextLevel as keyof typeof enemyFolders] || 'Enemy01';
-        
-        fetch(`src/statics/characters/${enemyFolder}/collision_data.json`)
-          .then(res => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.json();
-          })
-          .then(data => {
-            setCollisionData(data);
-            setCollisionDataLoading(false);
-          })
-          .catch((err) => {
-            setCollisionData(null);
-            setCollisionDataLoading(false);
-            setCollisionDataError('載入 collision_data.json 失敗: ' + err.message);
-          });
       }
     } else {
       setGameState(prev => ({
@@ -1462,14 +1415,12 @@ const movePlayer = (direction: 'left' | 'right') => {
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
   
   // 工具函數：將局部 box 轉為全局座標，正確處理 facing
-  const renderBoxes = (boxes: Box[], character: Character, boxType: 'hit' | 'hurt') => {
+  const renderBoxes = (boxes: Box[], characterId: string, boxType: 'hit' | 'hurt') => {
     const borderColor = boxType === 'hit' ? 'red' : 'blue';
     return boxes.map((box, index) => {
-      // const displayX = character.position.x + box.x;
-      // const displayY = character.position.y + box.y;
       return (
         <div
-          key={`${boxType}-box-${character.id}-${index}`}
+          key={`${boxType}-box-${characterId}-${index}`} // <-- 使用傳入的 characterId
           style={{
             position: 'absolute',
             left: `${box.x}px`,
@@ -1690,10 +1641,14 @@ const movePlayer = (direction: 'left' | 'right') => {
     {/* {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')} */}
 </div>
     {/* RENDER BOXES HERE, AT THE TOP LEVEL */}
-    {renderBoxes(getHurtBox(player1, player1CurrentFrame), player1, 'hurt')}
+    {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
+    {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
+    {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
+    {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
+    {/* {renderBoxes(getHurtBox(player1, player1CurrentFrame), player1, 'hurt')}
     {renderBoxes(getAttackHitBox(player1, player1CurrentFrame), player1, 'hit')}
     {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt')}
-    {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')}
+    {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')} */}
         {/* Effects */}
         {effects.map(effect => (
           <div

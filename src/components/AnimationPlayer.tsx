@@ -74,7 +74,7 @@ const PngAnimationPlayer: React.FC<{
         // 檢查是否為單次播放動畫
     const singlePlayAnimations = new Set([
           'punch', 'kick', 'crouch_punch', 'crouch_kick', 
-          'jump_punch', 'jump_kick', 'hit', 'special_attack', 'dead'
+          'jump_punch', 'jump_kick', 'hit', 'special_attack', 'death', 'dead'
       ]);
       
     const isSinglePlay = singlePlayAnimations.has(actionName);
@@ -83,12 +83,13 @@ const PngAnimationPlayer: React.FC<{
       setCurrentFrame(prev => {
         const next = prev + 1;
         if (next > maxFrames) {
-          // 如果是單次播放動畫，在結束時呼叫 onComplete
-          if (isSinglePlay) {
-            onComplete?.();
-          }
-          return 1;
-        }
+  if (isSinglePlay) {
+    onComplete?.();
+    clearInterval(interval); // Stop the interval
+    return maxFrames; // Remain on the last frame
+  }
+  return 1; // Loop for non-single-play animations
+}
         return next;
       });
     }, 1000 / source.frameRate);
