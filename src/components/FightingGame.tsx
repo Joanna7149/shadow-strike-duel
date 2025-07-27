@@ -12,10 +12,10 @@ import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
 // 遊戲常數
 const CHARACTER_WIDTH = 512;
 const CHARACTER_HEIGHT = 512;
-const MOVE_SPEED = 20;
-const DASH_SPEED = 40;
-const JUMP_HEIGHT = 200;
-const JUMP_DURATION = 800; // 毫秒
+const MOVE_SPEED = 5;
+const DASH_SPEED = 20;
+//const JUMP_HEIGHT = 200;
+//const JUMP_DURATION = 800; // 毫秒
 
 // 舞台固定常數（遊戲世界的物理尺寸）
 const FIGHTING_STAGE_CONSTANTS = {
@@ -67,12 +67,12 @@ const ANIMATION_CONFIGS = {
     kick: {
       type: 'png' as const,
       path: 'kick',
-      frameRate: 15
+      frameRate: 12
     },
     jump: {
       type: 'png' as const,
       path: 'jump',
-      frameRate: 10
+      frameRate: 20
     },
     crouch: {
       type: 'png' as const,
@@ -128,7 +128,7 @@ const ANIMATION_CONFIGS = {
     attacking: {
       type: 'png' as const,
       path: 'punch',
-      frameRate: 10
+      frameRate: 15
     },
     defending: {
       type: 'png' as const,
@@ -222,6 +222,8 @@ interface Character {
   energy: number;
   maxEnergy: number;
   position: { x: number; y: number };
+  velocityY: number; // 【新增】垂直速度，用於物理跳躍
+  isGrounded: boolean; // 【新增】是否在地面上
   facing: 'left' | 'right';
   state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead' | 'walk_forward' | 'walk_backward';
   hitBox: { x: number; y: number; width: number; height: number };
@@ -330,6 +332,8 @@ const FightingGame: React.FC = () => {
     maxEnergy: 100,
     // 初始位置設為舞台左側，y=0 表示在地面
     position: { x: initialPositions.player1X, y: 0 },
+    velocityY: 0, // 【新增】
+    isGrounded: true, // 【新增】
     facing: 'right',
     state: 'idle',
     hitBox: { x: 200, y: 300, width: 40, height: 60 },
@@ -345,6 +349,8 @@ const FightingGame: React.FC = () => {
     maxEnergy: 100,
     // 初始位置設為舞台右側，y=0 表示在地面
     position: { x: initialPositions.player2X, y: 0 },
+    velocityY: 0, // 【新增】
+    isGrounded: true, // 【新增】
     facing: 'left',
     state: 'idle',
     hitBox: { x: 600, y: 300, width: 40, height: 60 },
@@ -352,9 +358,10 @@ const FightingGame: React.FC = () => {
   });
 
   const [effects, setEffects] = useState<Array<{id: string, type: string, x: number, y: number}>>([]);
-  const gameLoopRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
+  const gameLoopRef = useRef<number | null>(null); // 【新增】儲存 requestAnimationFrame 的 ID
+  const pressedKeysRef = useRef<Set<string>>(new Set()); // 【新增】用來在主循環中讀取最新的按鍵狀態
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
   const player1IdleStateRef = useRef(null);
   const player1HitRegisteredRef = useRef(false);
@@ -427,6 +434,10 @@ const FightingGame: React.FC = () => {
     }
   }, [gameState.timeLeft, player1.health, player2.health]);
 
+  // 【新增】這個 useEffect 專門用來同步按鍵狀態到 Ref
+  useEffect(() => {
+  pressedKeysRef.current = pressedKeys;
+}, [pressedKeys]);
   // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -464,35 +475,22 @@ const FightingGame: React.FC = () => {
     });
   };
   // Battle controls
-     // [NEW] 簡化的 handleKeyDown，只負責更新 pressedKeys 和處理 dash
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
-    const key = e.key.toLowerCase();
+  // handleKeyDown 現在只處理「按下那一下」就觸發的動作，例如攻擊、跳躍
+// 【修改後】handleKeyDown 只負責「記錄」按鍵按下
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+  const key = e.key.toLowerCase();
+  
+  setPressedKeys(prev => {
+    const newKeys = new Set(prev);
+    newKeys.add(key);
+    return newKeys;
+  });
 
-    setPressedKeys(prev => {
-      const newKeys = new Set(prev);
-      newKeys.add(key);
-      return newKeys;
-    });
-
-    keyBufferRef.current.push({ key, time: Date.now() });
-    if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
-
-    const isWalking = player1.state === 'walk_forward' || player1.state === 'walk_backward';
-
-  if (!isWalking) {
-    if (key === 'd') {
-      const now = Date.now();
-      const recentDs = keyBufferRef.current.filter(k => k.key === 'd' && now - k.time < 300);
-      if (recentDs.length >= 2) dashPlayer('right');
-    }
-    if (key === 'a') {
-      const now = Date.now();
-      const recentAs = keyBufferRef.current.filter(k => k.key === 'a' && now - k.time < 300);
-      if (recentAs.length >= 2) dashPlayer('left');
-    }
-   }
-  };
+  // Dash 的 key buffer 邏輯可以保留，因為它依賴於按鍵事件的時機
+  keyBufferRef.current.push({ key, time: Date.now() });
+  if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
+};
 // [NEW] 簡化的 handleKeyUp，只負責從 pressedKeys 中移除按鍵
 const handleKeyUp = (e: KeyboardEvent) => {
   const key = e.key.toLowerCase();
@@ -516,94 +514,233 @@ useEffect(() => {
 
 // 檔案: FightingGame.tsx
 
-// 【修改後】請用此完整版本替換舊的 useEffect
+// 【修改後】最終的、全能的 requestAnimationFrame 遊戲主循環
 useEffect(() => {
-  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+  const GRAVITY = 1; // 新增重力常數
+  const JUMP_FORCE = 25; // 新增跳躍力量常數
 
-  const canPlayerAct = () => {
-    // 將所有單次攻擊動畫都視為不可中斷，直到動畫播放完畢
-    const uninterruptibleStates = [
-      'hit', 'dead', 'victory', 'special_attack', 
-      'jump_punch', 'jump_kick', 
-      'punch', 'kick', 'crouch_punch', 'crouch_kick'
-    ];
-    return !uninterruptibleStates.includes(player1.state);
-  };
+  const gameLoop = () => {
+    const currentPressedKeys = pressedKeysRef.current;
 
-  if (!canPlayerAct()) return;
+    // --- 碰撞檢測邏輯 ---
+  const p1AttackState = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player1.state);
 
-  // 【新增】1. 優先處理「跳躍中」的攻擊邏輯
-  if (player1.state === 'jump') {
-    if (pressedKeys.has('j')) {
-      setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
-      return; // 執行後中斷，不處理後續地面邏輯
+  // 只有在玩家攻擊時、本次攻擊尚未命中過、且碰撞資料都已載入時，才進行檢測
+  if (p1AttackState && !player1HitRegisteredRef.current && player1CollisionData && player2CollisionData) {
+    const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame, player1CollisionData);
+    const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame, player2CollisionData);
+
+    if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
+      const collisionDetected = p1HitBoxes.some(hitBox =>
+        p2HurtBoxes.some(hurtBox =>
+          isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)
+        )
+      );
+
+      if (collisionDetected) {
+        player1HitRegisteredRef.current = true; // 標記本次攻擊已命中，防止重複扣血
+        console.log("Collision detected!");
+        setPlayer2(prev => ({ 
+          ...prev, 
+          health: Math.max(0, prev.health - 10),
+          state: 'hit'
+        }));
+        setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+        // 將特效放在角色中心
+        addEffect('hit', player2.position.x + (CHARACTER_WIDTH / 2), player2.position.y + (CHARACTER_HEIGHT / 2));
+        
+        // AI 被擊中後，在短時間內回到 idle
+        setTimeout(() => {
+          setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+        }, 500); // 500ms 的硬直時間
+      }
     }
-    if (pressedKeys.has('k')) {
-      setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
-      return;
-    }
-    // 如果正在跳躍但沒有攻擊，也要 return，防止執行地面邏輯
-    return;
   }
 
-  // 2. 處理「地面」組合鍵：蹲下相關 (S + ...)
-  if (pressedKeys.has('s')) {
-    if (pressedKeys.has('j')) { crouchAttack('punch'); } 
-    else if (pressedKeys.has('k')) { crouchAttack('kick'); } 
-    else { setPlayer1(prev => (prev.state !== 'crouch' ? { ...prev, state: 'crouch' } : prev)); }
-    return;
-  }
-
-  // 3. 處理「地面」組合鍵：跳躍相關 (W + ...)
-  if (pressedKeys.has('w')) {
-    if (pressedKeys.has('j')) { jumpAttack('punch'); } 
-    else if (pressedKeys.has('k')) { jumpAttack('kick'); } 
-    else if (pressedKeys.has('l')) { jumpAttack('special'); } 
-    else { jumpPlayer(); }
-    return;
-  }
-  
-  // 4. 處理「地面」單鍵攻擊
-  if (pressedKeys.has('j')) { attackPlayer(); return; }
-  if (pressedKeys.has('k')) { kickPlayer(); return; }
-  if (pressedKeys.has('l')) { specialAttack(); return; }
-
-  // 5. 處理「地面」移動
-  if (pressedKeys.has('a') || pressedKeys.has('d')) {
     setPlayer1(prev => {
-      // Part A: 無論如何都先計算新的位置
-      const direction = pressedKeys.has('a') ? 'left' : 'right';
-      const newX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
+      // 遊戲階段或暫停檢查
+      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) {
+        return prev;
+      }
+
+      // 1. --- 物理更新 ---
+      let nextVelocityY = prev.velocityY - GRAVITY;
+      let nextY = prev.position.y + nextVelocityY;
+      let nextIsGrounded = false;
+
+      if (nextY <= 0) {
+        nextY = 0;
+        nextVelocityY = 0;
+        nextIsGrounded = true;
+      }
+
+      // 2. --- 動作決策 ---
+      let nextState = prev.state;
+
+      // 檢查角色是否可以執行新動作
+      const canAct = () => {
+        const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump_punch', 'jump_kick'];
+        return !uninterruptibleStates.includes(prev.state) || prev.isGrounded; // 在地面上時，完成的攻擊動畫可以被打斷
+      };
+
+      if (canAct()) {
+        // --- 優先級判斷開始 ---
+        
+        // A. 地面上的動作
+        if (prev.isGrounded) {
+          // 組合鍵優先
+          if (currentPressedKeys.has('w') && currentPressedKeys.has('j')) { nextState = 'jump_punch'; nextVelocityY = JUMP_FORCE; }
+          else if (currentPressedKeys.has('w') && currentPressedKeys.has('k')) { nextState = 'jump_kick'; nextVelocityY = JUMP_FORCE; }
+          else if (currentPressedKeys.has('s') && currentPressedKeys.has('j')) { nextState = 'crouch_punch'; }
+          else if (currentPressedKeys.has('s') && currentPressedKeys.has('k')) { nextState = 'crouch_kick'; }
+          // 單鍵動作
+          else if (currentPressedKeys.has('j')) { nextState = 'punch'; }
+          else if (currentPressedKeys.has('k')) { nextState = 'kick'; }
+          else if (currentPressedKeys.has('l') && prev.energy >= prev.maxEnergy) { 
+            nextState = 'special_attack'; 
+            // 觸發後能量歸零的邏輯需要加在 setPlayer1 的返回物件中
+          }
+          else if (currentPressedKeys.has('w')) { nextState = 'jump'; nextVelocityY = JUMP_FORCE; }
+          // 持續狀態
+          else if (currentPressedKeys.has('a') || currentPressedKeys.has('d')) {
+            nextState = (prev.facing === (currentPressedKeys.has('a') ? 'left' : 'right')) ? 'walk_forward' : 'walk_backward';
+          } else if (currentPressedKeys.has('s')) {
+            nextState = 'crouch';
+          } else {
+            nextState = 'idle';
+          }
+        }
+        // B. 空中動作 (如果沒有在地面上觸發新動作)
+        else {
+          // 空中可以觸發攻擊來改變狀態
+          if (currentPressedKeys.has('j')) { nextState = 'jump_punch'; }
+          else if (currentPressedKeys.has('k')) { nextState = 'jump_kick'; }
+        }
+      }
+
+      // 3. --- 水平位置更新 ---
+      let nextX = prev.position.x;
+      if (['walk_forward', 'walk_backward'].includes(nextState)) {
+        const direction = currentPressedKeys.has('a') ? 'left' : 'right';
+        nextX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
+      }
+      
+      // 邊界限制
       const minX = 0;
       const maxX = window.innerWidth - CHARACTER_WIDTH;
-      const clampedX = Math.max(minX, Math.min(maxX, newX));
+      nextX = Math.max(minX, Math.min(maxX, nextX));
 
-      // Part B: 只有在角色不處於走路狀態時，才更新為走路狀態
-      const isAlreadyWalking = prev.state === 'walk_forward' || prev.state === 'walk_backward';
-      let newState = prev.state; // 預設保持當前狀態
-      if (!isAlreadyWalking) {
-        // 根據移動方向和角色朝向，決定是前進還是後退動畫
-        newState = (prev.facing === direction) ? 'walk_forward' : 'walk_backward';
-      }
-
-      // Part C: 一次性更新位置和狀態
+      // 4. --- 最終狀態返回 ---
+      const energyUpdate = (nextState === 'special_attack') ? { energy: 0 } : {};
       return {
         ...prev,
-        position: { ...prev.position, x: clampedX },
-        state: newState
+        ...energyUpdate, // <-- 【新增】如果觸發了特殊攻擊，就更新能量
+        position: { x: nextX, y: nextY },
+        velocityY: nextVelocityY,
+        isGrounded: nextIsGrounded,
+        state: (nextIsGrounded && ['jump', 'jump_punch', 'jump_kick'].includes(nextState)) ? 'idle' : nextState
       };
     });
-  } else {
-    // 6. 若無任何動作，則恢復「閒置」狀態
-    setPlayer1(prev => {
-      const stoppableStates = ['walk_forward', 'walk_backward', 'crouch'];
-      if (stoppableStates.includes(prev.state)) {
-        return { ...prev, state: 'idle' };
-      }
-      return prev;
-    });
-  }
-}, [pressedKeys, gameState.gamePhase, gameState.isPaused, player1.state]);
+
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
+  };
+
+  gameLoopRef.current = requestAnimationFrame(gameLoop);
+
+  return () => {
+    if (gameLoopRef.current) {
+      cancelAnimationFrame(gameLoopRef.current);
+    }
+  };
+}, [gameState.gamePhase, gameState.isPaused]);
+// 【修改後】請用此完整版本替換舊的 useEffect
+// useEffect(() => {
+//   if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+
+//   const canPlayerAct = () => {
+//     // 將所有單次攻擊動畫都視為不可中斷，直到動畫播放完畢
+//     const uninterruptibleStates = [
+//       'hit', 'dead', 'victory', 'special_attack', 
+//       'jump_punch', 'jump_kick', 
+//       'punch', 'kick', 'crouch_punch', 'crouch_kick'
+//     ];
+//     return !uninterruptibleStates.includes(player1.state);
+//   };
+
+//   if (!canPlayerAct()) return;
+
+//   // 【新增】1. 優先處理「跳躍中」的攻擊邏輯
+//   if (player1.state === 'jump') {
+//     if (pressedKeys.has('j')) {
+//       setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
+//       return; // 執行後中斷，不處理後續地面邏輯
+//     }
+//     if (pressedKeys.has('k')) {
+//       setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
+//       return;
+//     }
+//     // 如果正在跳躍但沒有攻擊，也要 return，防止執行地面邏輯
+//     return;
+//   }
+
+//   // 2. 處理「地面」組合鍵：蹲下相關 (S + ...)
+//   if (pressedKeys.has('s')) {
+//     if (pressedKeys.has('j')) { crouchAttack('punch'); } 
+//     else if (pressedKeys.has('k')) { crouchAttack('kick'); } 
+//     else { setPlayer1(prev => (prev.state !== 'crouch' ? { ...prev, state: 'crouch' } : prev)); }
+//     return;
+//   }
+
+//   // 3. 處理「地面」組合鍵：跳躍相關 (W + ...)
+//   if (pressedKeys.has('w')) {
+//     if (pressedKeys.has('j')) { jumpAttack('punch'); } 
+//     else if (pressedKeys.has('k')) { jumpAttack('kick'); } 
+//     else if (pressedKeys.has('l')) { jumpAttack('special'); } 
+//     else { jumpPlayer(); }
+//     return;
+//   }
+  
+//   // 4. 處理「地面」單鍵攻擊
+//   if (pressedKeys.has('j')) { attackPlayer(); return; }
+//   if (pressedKeys.has('k')) { kickPlayer(); return; }
+//   if (pressedKeys.has('l')) { specialAttack(); return; }
+
+//   // 5. 處理「地面」移動
+//   if (pressedKeys.has('a') || pressedKeys.has('d')) {
+//     setPlayer1(prev => {
+//       // Part A: 無論如何都先計算新的位置
+//       const direction = pressedKeys.has('a') ? 'left' : 'right';
+//       const newX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
+//       const minX = 0;
+//       const maxX = window.innerWidth - CHARACTER_WIDTH;
+//       const clampedX = Math.max(minX, Math.min(maxX, newX));
+
+//       // Part B: 只有在角色不處於走路狀態時，才更新為走路狀態
+//       const isAlreadyWalking = prev.state === 'walk_forward' || prev.state === 'walk_backward';
+//       let newState = prev.state; // 預設保持當前狀態
+//       if (!isAlreadyWalking) {
+//         // 根據移動方向和角色朝向，決定是前進還是後退動畫
+//         newState = (prev.facing === direction) ? 'walk_forward' : 'walk_backward';
+//       }
+
+//       // Part C: 一次性更新位置和狀態
+//       return {
+//         ...prev,
+//         position: { ...prev.position, x: clampedX },
+//         state: newState
+//       };
+//     });
+//   } else {
+//     // 6. 若無任何動作，則恢復「閒置」狀態
+//     setPlayer1(prev => {
+//       const stoppableStates = ['walk_forward', 'walk_backward', 'crouch'];
+//       if (stoppableStates.includes(prev.state)) {
+//         return { ...prev, state: 'idle' };
+//       }
+//       return prev;
+//     });
+//   }
+// }, [pressedKeys, gameState.gamePhase, gameState.isPaused, player1.state]);
 
   useEffect(() => {
     fetch(`/statics/characters/MainHero/collision_data.json`)
@@ -723,68 +860,68 @@ function isCollision(rect1: Box, rect2: Box) {
   );
 }
   // 新增：玩家攻擊碰撞檢測
-  useEffect(() => {
-    // 只有在玩家處於攻擊狀態時才進行碰撞檢測
-    const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player1.state);
-    const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player2.state);
+  // useEffect(() => {
+  //   // 只有在玩家處於攻擊狀態時才進行碰撞檢測
+  //   const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player1.state);
+  //   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player2.state);
     
-    if (
-      gameState.gamePhase === 'level-battle' &&
-      !gameState.isPaused &&
-      isPlayer1Attacking &&
-      player1CollisionData && // 【修改後】確認玩家1的碰撞資料已載入
-      player2CollisionData    // 【修改後】確認玩家2的碰撞資料已載入
-    ) {
-      const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame, player1CollisionData); // <-- 傳入 p1 data
-      const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame, player2CollisionData);     // <-- 傳入 p2 data
-      // const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame);
-      // const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame);
+  //   if (
+  //     gameState.gamePhase === 'level-battle' &&
+  //     !gameState.isPaused &&
+  //     isPlayer1Attacking &&
+  //     player1CollisionData && // 【修改後】確認玩家1的碰撞資料已載入
+  //     player2CollisionData    // 【修改後】確認玩家2的碰撞資料已載入
+  //   ) {
+  //     const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame, player1CollisionData); // <-- 傳入 p1 data
+  //     const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame, player2CollisionData);     // <-- 傳入 p2 data
+  //     // const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame);
+  //     // const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame);
   
-      // 確保有碰撞框才進行判斷
-      if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
-        const collisionDetected = p1HitBoxes.some(hitBox =>
-          p2HurtBoxes.some(hurtBox =>
-            isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)
-          )
-        );
+  //     // 確保有碰撞框才進行判斷
+  //     if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
+  //       const collisionDetected = p1HitBoxes.some(hitBox =>
+  //         p2HurtBoxes.some(hurtBox =>
+  //           isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)
+  //         )
+  //       );
   
-        if (collisionDetected && !player1HitRegisteredRef.current) { 
-          player1HitRegisteredRef.current = true; // <-- 命中後將旗幟設為 true
-          console.log("Collision detected!");
-          // 避免重複觸發命中效果，可以添加一個旗幟或者只在特定幀觸發
-          // 這裡簡單實現為直接觸發一次效果並扣血
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - 10), // 假設每次攻擊扣10點血
-            state: 'hit'
-          }));
-          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
-          addEffect('hit', player2.position.x, player2.position.y);
+  //       if (collisionDetected && !player1HitRegisteredRef.current) { 
+  //         player1HitRegisteredRef.current = true; // <-- 命中後將旗幟設為 true
+  //         console.log("Collision detected!");
+  //         // 避免重複觸發命中效果，可以添加一個旗幟或者只在特定幀觸發
+  //         // 這裡簡單實現為直接觸發一次效果並扣血
+  //         setPlayer2(prev => ({ 
+  //           ...prev, 
+  //           health: Math.max(0, prev.health - 10), // 假設每次攻擊扣10點血
+  //           state: 'hit'
+  //         }));
+  //         setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+  //         addEffect('hit', player2.position.x, player2.position.y);
   
-          // AI 被擊中後，使其狀態在短時間內回到 idle
-          // 這裡可以根據需要調整延遲時間
-          setTimeout(() => {
-            setPlayer2(prev => ({ ...prev, state: 'idle' }));
-          }, 500); // 讓 AI 有被擊中的動畫時間
-          // setTimeout(() => {
-          //   setPlayer1(prev => ({ ...prev, state: 'idle' }));
-          // }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
-        }
-      }
-    }
-  }, [
-    player1.state,
-    player1CurrentFrame,
-    player1.position, // 建議監聽整個 position 物件
-    player1.facing,
-    player2.state,
-    player2CurrentFrame,
-    player2.position,
-    gameState.gamePhase,
-    gameState.isPaused,
-    player1CollisionData, // 正確的依賴項
-    player2CollisionData  // 正確的依賴項
-  ]);
+  //         // AI 被擊中後，使其狀態在短時間內回到 idle
+  //         // 這裡可以根據需要調整延遲時間
+  //         setTimeout(() => {
+  //           setPlayer2(prev => ({ ...prev, state: 'idle' }));
+  //         }, 500); // 讓 AI 有被擊中的動畫時間
+  //         // setTimeout(() => {
+  //         //   setPlayer1(prev => ({ ...prev, state: 'idle' }));
+  //         // }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
+  //       }
+  //     }
+  //   }
+  // }, [
+  //   player1.state,
+  //   player1CurrentFrame,
+  //   player1.position, // 建議監聽整個 position 物件
+  //   player1.facing,
+  //   player2.state,
+  //   player2CurrentFrame,
+  //   player2.position,
+  //   gameState.gamePhase,
+  //   gameState.isPaused,
+  //   player1CollisionData, // 正確的依賴項
+  //   player2CollisionData  // 正確的依賴項
+  // ]);
 
   // 請用這段程式碼完整替換掉舊的 movePlayer 函式
 const movePlayer = (direction: 'left' | 'right') => {
@@ -1586,7 +1723,7 @@ const movePlayer = (direction: 'left' | 'right') => {
         <div className="absolute inset-0">
         {/* Player 1 */}
         <div 
-          className={`absolute transition-all duration-300 ${player1.state === 'special' ? 'animate-pulse' : ''}`}
+          className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
               left: player1.position.x, 
               bottom: `${player1.position.y}px`, // 簡化Y軸定位
@@ -1615,7 +1752,7 @@ const movePlayer = (direction: 'left' | 'right') => {
 
 {/* Player 2 (AI) */}
 <div 
-  className={`absolute transition-all duration-300 ${player2.state === 'special' ? 'animate-pulse' : ''}`}
+  className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
   style={{ 
     left: player2.position.x, 
       bottom: `${player2.position.y}px`, // 簡化Y軸定位
