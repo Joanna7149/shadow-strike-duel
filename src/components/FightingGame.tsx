@@ -12,8 +12,8 @@ import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
 // 遊戲常數
 const CHARACTER_WIDTH = 512;
 const CHARACTER_HEIGHT = 512;
-const MOVE_SPEED = 5;
-const DASH_SPEED = 15;
+const MOVE_SPEED = 20;
+const DASH_SPEED = 40;
 const JUMP_HEIGHT = 200;
 const JUMP_DURATION = 800; // 毫秒
 
@@ -756,35 +756,68 @@ function isCollision(rect1: Box, rect2: Box) {
     collisionData // 確保碰撞數據已載入
   ]);
 
-  const movePlayer = (direction: 'left' | 'right') => {
-    setPlayer1(prev => {
-      // 判斷是否面朝對手
-      const isMovingTowardsOpponent = 
-        (direction === 'right' && prev.facing === 'right' && prev.position.x < player2.position.x) ||
-        (direction === 'left' && prev.facing === 'left' && prev.position.x > player2.position.x);
-  
-      // 根據是否朝向對手來決定動畫狀態
-      const newState = isMovingTowardsOpponent ? 'walk_forward' : 'walk_backward';
-      // 考慮角色縮放後的實際大小
-      const scaledWidth = CHARACTER_WIDTH;
-      const minX = 0;
-      const maxX = window.innerWidth - scaledWidth;
-      
-      let newX = prev.position.x + (direction === 'left' ? -30 : 30);
-      newX = Math.max(minX, Math.min(maxX, newX));
-      
-      return {
+  // 請用這段程式碼完整替換掉舊的 movePlayer 函式
+const movePlayer = (direction: 'left' | 'right') => {
+  setPlayer1(prev => {
+    let newState: 'walk_forward' | 'walk_backward';
+
+    // 判斷是前進還是後退
+    if (prev.facing === 'right') {
+      // 如果面朝右
+      newState = direction === 'right' ? 'walk_forward' : 'walk_backward';
+    } else {
+      // 如果面朝左
+      newState = direction === 'left' ? 'walk_forward' : 'walk_backward';
+    }
+
+    const scaledWidth = CHARACTER_WIDTH;
+    const minX = 0;
+    const maxX = window.innerWidth - scaledWidth;
+    
+    let newX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED); // 使用常數控制速度
+    newX = Math.max(minX, Math.min(maxX, newX));
+    
+    return {
       ...prev,
-      position: {
-        ...prev.position,
-          x: newX
-      },
-      facing: direction,
-        state: newState // 使用新的狀態
-      };
-    });
-    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
-  };
+      position: { ...prev.position, x: newX },
+      // 【重要】走路時不再改變 facing 方向
+      state: newState 
+    };
+  });
+
+  // 清除計時器，避免走路動畫被過早切回 idle
+  if (player1IdleStateRef.current) clearTimeout(player1IdleStateRef.current);
+  player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
+};
+  // const movePlayer = (direction: 'left' | 'right') => {
+  //   setPlayer1(prev => {
+  //     // 判斷是否面朝對手
+  //     const isMovingTowardsOpponent = 
+  //       (direction === 'right' && prev.facing === 'right' && prev.position.x < player2.position.x) ||
+  //       (direction === 'left' && prev.facing === 'left' && prev.position.x > player2.position.x);
+  
+  //     // 根據是否朝向對手來決定動畫狀態
+  //     const newState = isMovingTowardsOpponent ? 'walk_forward' : 'walk_backward';
+  //     // 考慮角色縮放後的實際大小
+  //     const scaledWidth = CHARACTER_WIDTH;
+  //     const minX = 0;
+  //     const maxX = window.innerWidth - scaledWidth;
+      
+  //     let newX = prev.position.x + (direction === 'left' ? -30 : 30);
+  //     newX = Math.max(minX, Math.min(maxX, newX));
+      
+  //     return {
+  //     ...prev,
+  //     position: {
+  //       ...prev.position,
+  //         x: newX
+  //     },
+  //     facing: direction,
+  //       state: newState // 使用新的狀態
+  //     };
+  //   });
+  //   player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 300);
+  // };
 
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
@@ -939,6 +972,23 @@ function isCollision(rect1: Box, rect2: Box) {
       }
     }, 800);
   };
+
+  // 新增這個 useEffect 來處理角色自動轉向
+  useEffect(() => {
+    // 根據 P1 和 P2 的相對位置來決定 P1 的朝向
+    if (player1.position.x > player2.position.x && player1.facing === 'right') {
+      setPlayer1(p => ({ ...p, facing: 'left' }));
+    } else if (player1.position.x < player2.position.x && player1.facing === 'left') {
+      setPlayer1(p => ({ ...p, facing: 'right' }));
+    }
+
+    // 根據 P1 和 P2 的相對位置來決定 P2 的朝向
+    if (player2.position.x > player1.position.x && player2.facing === 'right') {
+      setPlayer2(p => ({ ...p, facing: 'left' }));
+    } else if (player2.position.x < player1.position.x && player2.facing === 'left') {
+      setPlayer2(p => ({ ...p, facing: 'right' }));
+    }
+  }, [player1.position.x, player2.position.x]); // 當任一角色的X座標改變時觸發
 
   // 處理 Modal 按鈕
   const handleResultModalClose = () => {

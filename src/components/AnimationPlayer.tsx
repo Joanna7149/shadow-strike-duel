@@ -74,7 +74,7 @@ const PngAnimationPlayer: React.FC<{
         // 檢查是否為單次播放動畫
     const singlePlayAnimations = new Set([
           'punch', 'kick', 'crouch_punch', 'crouch_kick', 
-          'jump_punch', 'jump_kick', 'hit', 'special_attack'
+          'jump_punch', 'jump_kick', 'hit', 'special_attack', 'dead'
       ]);
       
     const isSinglePlay = singlePlayAnimations.has(actionName);
@@ -136,7 +136,7 @@ const imagePath = `/statics/characters/${source.path}/${frameNumber}.png`;
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        transform: `scaleX(${isPlayer1 ? (facing === 'right' ? -1 : 1) : (facing === 'left' ? -1 : 1)})`,
+        transform: `scaleX(${isPlayer1 ? (facing === 'right' ? -1 : 1) : (facing === 'left' ? 1 : -1)})`,
         transformOrigin: 'center',
         position: 'relative',
         // border: "3px solid yellow"
