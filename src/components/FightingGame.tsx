@@ -17,22 +17,15 @@ const DASH_SPEED = 20;
 //const JUMP_HEIGHT = 200;
 //const JUMP_DURATION = 800; // 毫秒
 
+// 【新增】定義遊戲世界的固定尺寸
+const GAME_WIDTH = 1920;
+const GAME_HEIGHT = 1080;
 // 舞台固定常數（遊戲世界的物理尺寸）
 const FIGHTING_STAGE_CONSTANTS = {
   // 舞台背景尺寸
-  backgroundWidth: 1800, // 背景圖寬度（整個可滾動舞台）
+  backgroundWidth: 2400, // 背景圖寬度（整個可滾動舞台）
   backgroundHeight: 1080, // 舞台高度
   groundY: 0, // 地板位置（角色腳底對齊點）
-};
-
-// 計算角色初始位置（確保在可見範圍內）
-const calculateInitialPositions = () => {
-  const stageWidth = FIGHTING_STAGE_CONSTANTS.backgroundWidth;
-  const viewportWidth = window.innerWidth;
-  return {
-    player1X: stageWidth * 0.1,
-    player2X: stageWidth * 0.85 - CHARACTER_WIDTH,
-  };
 };
 
 // 動畫配置系統
@@ -297,6 +290,12 @@ function isFacingOpponent(p1: Character, p2: Character) {
 }
 
 const FightingGame: React.FC = () => {
+  // 【新增】預先計算角色和攝影機的理想初始位置
+  const initialP1X = (FIGHTING_STAGE_CONSTANTS.backgroundWidth / 2) - 400;
+  const initialP2X = (FIGHTING_STAGE_CONSTANTS.backgroundWidth / 2) + 400;
+  const initialMidpoint = (initialP1X + initialP2X) / 2;
+  const initialCameraX = initialMidpoint - (GAME_WIDTH / 2);
+
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
     currentLevel: 1,
@@ -305,6 +304,10 @@ const FightingGame: React.FC = () => {
     playerPhoto: null,
     lastResult: null
   });
+  
+  const [gameScale, setGameScale] = useState(1); // 【新增】用於儲存縮放比例的 state
+  const [cameraX, setCameraX] = useState(initialCameraX);
+  const cameraXRef = useRef(cameraX); // 【新增】cameraX 的 Ref
 
   // const [collisionData, setCollisionData] = useState<CharacterCollisionData | null>(null);
   const [player1CollisionData, setPlayer1CollisionData] = useState<CharacterCollisionData | null>(null);
@@ -316,9 +319,6 @@ const FightingGame: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [gameDimensions, setGameDimensions] = useState(FIGHTING_STAGE_CONSTANTS); // 動態遊戲尺寸
-  
-  // 計算初始位置
-  const initialPositions = calculateInitialPositions();
   
   const setPlayerIdleState = (player) => {
 
@@ -336,7 +336,7 @@ const FightingGame: React.FC = () => {
     energy: 0, // 初始為0
     maxEnergy: 100,
     // 初始位置設為舞台左側，y=0 表示在地面
-    position: { x: initialPositions.player1X, y: 0 },
+    position: { x: initialP1X, y: 0 }, 
     velocityY: 0, // 【新增】
     isGrounded: true, // 【新增】
     facing: 'right',
@@ -353,7 +353,7 @@ const FightingGame: React.FC = () => {
     energy: 100,
     maxEnergy: 100,
     // 初始位置設為舞台右側，y=0 表示在地面
-    position: { x: initialPositions.player2X, y: 0 },
+    position: { x: initialP2X, y: 0 },
     velocityY: 0, // 【新增】
     isGrounded: true, // 【新增】
     facing: 'left',
@@ -370,6 +370,7 @@ const FightingGame: React.FC = () => {
   const keyBufferRef = useRef<Array<{ key: string; time: number }>>([]);
   const player1IdleStateRef = useRef(null);
   const player1HitRegisteredRef = useRef(false);
+  const player2HitRegisteredRef = useRef(false);
   const aiActionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // <-- 【新增】這個 Ref
     // 3. 幀追蹤狀態
   const [player1CurrentFrame, setPlayer1CurrentFrame] = useState(1);
@@ -395,37 +396,28 @@ const FightingGame: React.FC = () => {
     p2FrameRef.current = player2CurrentFrame;
   }, [player2CurrentFrame]);
 
-  // RWD 縮放效果
+  // 【新增/替換】處理遊戲畫布縮放的 useEffect
   useEffect(() => {
-    const updateDimensions = () => {
-      const newInitialPositions = calculateInitialPositions();
-      setGameDimensions(FIGHTING_STAGE_CONSTANTS);
+    const handleResize = () => {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
       
-      // 更新角色位置以適應新的視窗大小
-      setPlayer1(prev => ({
-        ...prev,
-        position: { 
-          x: Math.min(prev.position.x, window.innerWidth - CHARACTER_WIDTH), 
-          y: prev.position.y 
-        }
-      }));
+      // 計算寬度和高度的縮放比例
+      const scaleX = screenWidth / GAME_WIDTH;
+      const scaleY = screenHeight / GAME_HEIGHT;
       
-      setPlayer2(prev => ({
-        ...prev,
-        position: { 
-          x: Math.min(prev.position.x, window.innerWidth - CHARACTER_WIDTH), 
-          y: prev.position.y 
-        }
-      }));
+      // 選擇較小的比例，以確保整個遊戲畫布都能被看見
+      const scale = Math.min(scaleX, scaleY);
+      
+      setGameScale(scale);
     };
 
     // 初始設定
-    updateDimensions();
+    handleResize();
 
-    // 監聽視窗大小變化
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []); // 空依賴陣列，表示只在組件掛載和卸載時執行
 
   // Opening animation effect
   useEffect(() => {
@@ -465,6 +457,10 @@ const FightingGame: React.FC = () => {
   useEffect(() => {
   pressedKeysRef.current = pressedKeys;
 }, [pressedKeys]);
+
+  useEffect(() => {
+  cameraXRef.current = cameraX;
+}, [cameraX]);
   // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -605,9 +601,10 @@ useEffect(() => {
       nextX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
     }
       
-      const minX = 0;
-      const maxX = window.innerWidth - CHARACTER_WIDTH;
-      nextX = Math.max(minX, Math.min(maxX, nextX));
+    const minX = cameraXRef.current; // 攝影機的左邊緣
+    const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH; // 攝影機的右邊緣
+    nextX = Math.max(minX, Math.min(maxX, nextX));
+
 
       // 4. 最終狀態返回
       return {
@@ -620,6 +617,57 @@ useEffect(() => {
         state: (nextIsGrounded && !prev.isGrounded) ? 'landing' : nextState
       };
     });
+
+// --- AI 狀態更新 (將 aiAction 邏輯整合進來) ---
+    setPlayer2(prev => {
+      // AI 也需要遵守不可中斷的規則
+      const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick'];
+      if (uninterruptibleStates.includes(prev.state)) {
+        return prev;
+      }
+      const p1 = player1Ref.current;
+      const distance = Math.abs(prev.position.x - p1.position.x);
+      let nextState = prev.state;
+      let nextX = prev.position.x;
+
+      // 簡易的 AI 決策
+      if (distance > 150) { // 距離太遠，靠近
+        nextState = 'walk_forward';
+      } else {
+        // 【修改點】當 AI 決定攻擊時，重置它的命中旗幟
+        if (Math.random() < 0.8) {
+          nextState = 'punch';
+          player2HitRegisteredRef.current = false; // <-- 在這裡重置
+        } else {
+          nextState = 'defending';
+        }
+      }
+      
+      // AI 移動邏輯
+      if (nextState === 'walk_forward') {
+        const direction = prev.position.x > p1.position.x ? 'left' : 'right';
+        nextX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
+      }
+      
+      // 【關鍵修正】讓 AI 也遵守攝影機邊界
+      const minX = cameraXRef.current;
+      const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH;
+      nextX = Math.max(minX, Math.min(maxX, nextX));
+
+      return {
+        ...prev,
+        position: { ...prev.position, x: nextX },
+        state: nextState
+      };
+    });
+        // 【新增以下攝影機邏輯】
+      const p1_x = player1Ref.current.position.x;
+      const p2_x = player2Ref.current.position.x;
+      const midpoint = (p1_x + p2_x) / 2;
+      let targetCameraX = midpoint - (GAME_WIDTH / 2);
+      const maxCameraX = FIGHTING_STAGE_CONSTANTS.backgroundWidth - GAME_WIDTH;
+      targetCameraX = Math.max(0, Math.min(targetCameraX, maxCameraX));
+      setCameraX(targetCameraX);
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   };
@@ -680,6 +728,57 @@ useEffect(() => {
     }
   }
 }, [player1CurrentFrame, player2CurrentFrame]); // 觸發器是動畫幀數的改變
+
+useEffect(() => {
+  // 從 Ref 讀取最新的角色和幀數資料
+  const p1 = player1Ref.current;
+  const p2 = player2Ref.current;
+  const p1Frame = p1FrameRef.current;
+  const p2Frame = p2FrameRef.current;
+
+  // 檢查 AI 是否處於攻擊狀態
+  const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick', 'attacking'].includes(p2.state);
+  
+  if (
+    gameState.gamePhase === 'level-battle' &&
+    !gameState.isPaused &&
+    isPlayer2Attacking &&
+    !player2HitRegisteredRef.current && // 【修改後】增加對旗幟的判斷
+    player1CollisionData &&
+    player2CollisionData
+  ) {
+    const p2HitBoxes = getAttackHitBox(p2, p2Frame, player2CollisionData);
+    const p1HurtBoxes = getHurtBox(p1, p1Frame, player1CollisionData);
+
+    if (p2HitBoxes.length > 0 && p1HurtBoxes.length > 0) {
+      const collisionDetected = p2HitBoxes.some(hitBox =>
+        p1HurtBoxes.some(hurtBox =>
+          isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)
+        )
+      );
+
+      if (collisionDetected) { 
+        player2HitRegisteredRef.current = true; // 【修改後】命中後，立刻將旗幟設為 true
+        // 這裡我們不需要 hit ref，因為 AI 的攻擊判定通常比較簡單
+        console.log("AI Collision detected!");
+        
+        // 玩家被命中
+        setPlayer1(prev => ({ 
+          ...prev, 
+          health: Math.max(0, prev.health - 10),
+          state: 'hit'
+        }));
+        addEffect('hit', p1.position.x, p1.position.y);
+
+        // 玩家被擊中後，在短時間內回到 idle
+        setTimeout(() => {
+          setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+        }, 500);
+      }
+    }
+  }
+// 觸發器：同樣由動畫幀數改變時觸發
+}, [player1CurrentFrame, player2CurrentFrame]);
 
 // 【新增】這個 useEffect 用於處理起跳前的準備動作
 useEffect(() => {
@@ -797,109 +896,15 @@ function isCollision(rect1: Box, rect2: Box) {
     rect1.y + rect1.height > rect2.y
   );
 }
-  // 新增：玩家攻擊碰撞檢測
-  // useEffect(() => {
-  //   // 只有在玩家處於攻擊狀態時才進行碰撞檢測
-  //   const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player1.state);
-  //   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(player2.state);
-    
-  //   if (
-  //     gameState.gamePhase === 'level-battle' &&
-  //     !gameState.isPaused &&
-  //     isPlayer1Attacking &&
-  //     player1CollisionData && // 【修改後】確認玩家1的碰撞資料已載入
-  //     player2CollisionData    // 【修改後】確認玩家2的碰撞資料已載入
-  //   ) {
-  //     const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame, player1CollisionData); // <-- 傳入 p1 data
-  //     const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame, player2CollisionData);     // <-- 傳入 p2 data
-  //     // const p1HitBoxes = getAttackHitBox(player1, player1CurrentFrame);
-  //     // const p2HurtBoxes = getHurtBox(player2, player2CurrentFrame);
-  
-  //     // 確保有碰撞框才進行判斷
-  //     if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
-  //       const collisionDetected = p1HitBoxes.some(hitBox =>
-  //         p2HurtBoxes.some(hurtBox =>
-  //           isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)
-  //         )
-  //       );
-  
-  //       if (collisionDetected && !player1HitRegisteredRef.current) { 
-  //         player1HitRegisteredRef.current = true; // <-- 命中後將旗幟設為 true
-  //         console.log("Collision detected!");
-  //         // 避免重複觸發命中效果，可以添加一個旗幟或者只在特定幀觸發
-  //         // 這裡簡單實現為直接觸發一次效果並扣血
-  //         setPlayer2(prev => ({ 
-  //           ...prev, 
-  //           health: Math.max(0, prev.health - 10), // 假設每次攻擊扣10點血
-  //           state: 'hit'
-  //         }));
-  //         setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
-  //         addEffect('hit', player2.position.x, player2.position.y);
-  
-  //         // AI 被擊中後，使其狀態在短時間內回到 idle
-  //         // 這裡可以根據需要調整延遲時間
-  //         setTimeout(() => {
-  //           setPlayer2(prev => ({ ...prev, state: 'idle' }));
-  //         }, 500); // 讓 AI 有被擊中的動畫時間
-  //         // setTimeout(() => {
-  //         //   setPlayer1(prev => ({ ...prev, state: 'idle' }));
-  //         // }, 500); // 玩家被擊中後，使其狀態在短時間內回到 idle
-  //       }
-  //     }
-  //   }
-  // }, [
-  //   player1.state,
-  //   player1CurrentFrame,
-  //   player1.position, // 建議監聽整個 position 物件
-  //   player1.facing,
-  //   player2.state,
-  //   player2CurrentFrame,
-  //   player2.position,
-  //   gameState.gamePhase,
-  //   gameState.isPaused,
-  //   player1CollisionData, // 正確的依賴項
-  //   player2CollisionData  // 正確的依賴項
-  // ]);
 
-  // 請用這段程式碼完整替換掉舊的 movePlayer 函式
-const movePlayer = (direction: 'left' | 'right') => {
-  setPlayer1(prev => {
-    let newState: 'walk_forward' | 'walk_backward';
-
-    // 判斷是前進還是後退
-    if (prev.facing === 'right') {
-      // 如果面朝右
-      newState = direction === 'right' ? 'walk_forward' : 'walk_backward';
-    } else {
-      // 如果面朝左
-      newState = direction === 'left' ? 'walk_forward' : 'walk_backward';
-    }
-
-    const scaledWidth = CHARACTER_WIDTH;
-    const minX = 0;
-    const maxX = window.innerWidth - scaledWidth;
-    
-    let newX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED); // 使用常數控制速度
-    newX = Math.max(minX, Math.min(maxX, newX));
-    
-    return {
-      ...prev,
-      position: { ...prev.position, x: newX },
-      // 【重要】走路時不再改變 facing 方向
-      state: newState 
-    };
-  });
-};
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
-      // 考慮角色縮放後的實際大小
-      const scaledWidth = CHARACTER_WIDTH;
-      const minX = 0;
-      const maxX = window.innerWidth - scaledWidth;
-      
-      let newX = prev.position.x + (direction === 'left' ? -100 : 100);
-      newX = Math.max(minX, Math.min(maxX, newX));
+    const minX = 0;
+    // 【修改後】邊界應該是整個大舞台
+    const maxX = FIGHTING_STAGE_CONSTANTS.backgroundWidth - CHARACTER_WIDTH;
+    let newX = prev.position.x + (direction === 'left' ? -100 : 100);
+    newX = Math.max(minX, Math.min(maxX, newX));
       
       addEffect('dash', newX, prev.position.y);
       return {
@@ -915,24 +920,6 @@ const movePlayer = (direction: 'left' | 'right') => {
     player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 200);
   };
 
-  const defendPlayer = () => {
-    setPlayer1(prev => ({ ...prev, state: 'defending' }));
-    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 500);
-  };
-
-  // 在 attackPlayer、comboAttack、kickPlayer、specialAttack 等攻擊函式中，若 player1 正在 movePlayer('left') 或 movePlayer('right') 且是遠離 AI，則自動進入防禦狀態。
-  // 這裡以 attackPlayer 為例，其他攻擊函式可依此類推。
-  // 2. 只有攻擊命中對手時才加能量，不能超過 maxEnergy
-  const attackPlayer = () => {
-    clearTimeout(player1IdleStateRef.current);
-    player1HitRegisteredRef.current = false;
-    setPlayer1(prev => {
-      return({ 
-        ...prev, 
-      state: 'punch'
-    })});
-    console.log(player1CurrentFrame)
-  }
   // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
   const specialAttack = () => {
     if (player1.energy >= player1.maxEnergy) {
@@ -1072,12 +1059,12 @@ const movePlayer = (direction: 'left' | 'right') => {
   };
 
   const resetPlayersForNewBattle = () => {
-    const newInitialPositions = calculateInitialPositions();
+
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
       energy: 0, // 歸零
-      position: { x: newInitialPositions.player1X, y: 0 },
+      osition: { x: initialP1X, y: 0 },
       state: 'idle',
       hitBox: { x: 200, y: 300, width: 40, height: 60 },
       hurtBox: { x: 200, y: 300, width: 40, height: 60 }
@@ -1086,7 +1073,7 @@ const movePlayer = (direction: 'left' | 'right') => {
       ...prev, 
       health: 100, 
       energy: 100, 
-      position: { x: newInitialPositions.player2X, y: 0 },
+      position: { x: initialP2X, y: 0 },
       state: 'idle',
       hitBox: { x: 600, y: 300, width: 40, height: 60 },
       hurtBox: { x: 600, y: 300, width: 40, height: 60 }
@@ -1171,12 +1158,11 @@ const movePlayer = (direction: 'left' | 'right') => {
       isPaused: false,
       playerPhoto: null
     });
-    const newInitialPositions = calculateInitialPositions();
     setPlayer1(prev => ({ 
       ...prev, 
       health: 100, 
       energy: 0, // 歸零
-      position: { x: newInitialPositions.player1X, y: 0 },
+      position: { x: initialP1X, y: 0 },
       state: 'idle',
       hitBox: { x: 200, y: 300, width: 40, height: 60 },
       hurtBox: { x: 200, y: 300, width: 40, height: 60 }
@@ -1185,99 +1171,11 @@ const movePlayer = (direction: 'left' | 'right') => {
       ...prev, 
       health: 100, 
       energy: 100, 
-      position: { x: newInitialPositions.player2X, y: 0 },
+      position: { x: initialP2X, y: 0 },
       state: 'idle',
       hitBox: { x: 600, y: 300, width: 40, height: 60 },
       hurtBox: { x: 600, y: 300, width: 40, height: 60 }
     }));
-  };
-
-  // 新增跳躍與踢的函式
-  // 方向跳與原地跳邏輯
-  const jumpPlayer = () => {
-    if (player1.state === 'jump') return; // 避免連續觸發
-    const jumpHeight = 200;
-    const upTime = 500;
-    const downTime = 500;
-    // 判斷方向
-    let direction: 'left' | 'right' | 'none' = 'none';
-    if (pressedKeys.has('a') && !pressedKeys.has('d')) direction = 'left';
-    else if (pressedKeys.has('d') && !pressedKeys.has('a')) direction = 'right';
-    const stageWidth = window.innerWidth;
-    const minX = stageWidth * 0.02;
-    const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
-    // 跳躍慣性距離
-    const jumpDistance = direction === 'left' ? -100 : direction === 'right' ? 100 : 0;
-    // 跳躍起點
-    const startX = player1.position.x;
-    const targetX = Math.max(minX, Math.min(maxX, startX + jumpDistance));
-    // 跳躍動畫
-    setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: startX, y: 0 } }));
-    setTimeout(() => {
-      setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
-      setTimeout(() => {
-        setPlayer1(prev => ({ ...prev, state: 'idle', position: { ...prev.position, x: targetX, y: 0 } }));
-      }, downTime);
-    }, upTime);
-  };
-  const kickPlayer = () => {
-    clearTimeout(player1IdleStateRef.current); // <--- 建議也加上，確保一致性
-    player1HitRegisteredRef.current = false; // <--- 新增這一行
-    setPlayer1(prev => ({
-      ...prev,
-      state: 'kick'
-    }));
-  };
-
-  // 新增組合攻擊函式
-  // 跳躍攻擊邏輯
-  const jumpAttack = (attackType: 'punch' | 'kick' | 'special') => {
-    if (attackType === 'special' && player1.energy < player1.maxEnergy) return;
-    const jumpHeight = 200;
-    const upTime = 500;
-    const downTime = 500;
-    // 判斷方向
-    let direction: 'left' | 'right' | 'none' = 'none';
-    if (pressedKeys.has('a') && !pressedKeys.has('d')) direction = 'left';
-    else if (pressedKeys.has('d') && !pressedKeys.has('a')) direction = 'right';
-    const stageWidth = window.innerWidth;
-    const minX = stageWidth * 0.02;
-    const maxX = stageWidth * 0.98 - CHARACTER_WIDTH;
-    const jumpDistance = direction === 'left' ? -100 : direction === 'right' ? 100 : 0;
-    const startX = player1.position.x;
-    const targetX = Math.max(minX, Math.min(maxX, startX + jumpDistance));
-    // 跳躍動畫
-    player1HitRegisteredRef.current = false;
-    setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: startX, y: 0 } }));
-    setTimeout(() => {
-      setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
-      // 空中攻擊判斷
-    // 下落
-    setTimeout(() => {
-      setPlayer1(prev => ({ ...prev, state: 'idle', position: { ...prev.position, x: targetX, y: 0 } }));
-    }, downTime);
-  }, upTime);
-};
-
-  const crouchAttack = (attackType: 'punch' | 'kick') => {
-    player1HitRegisteredRef.current = false;
-    const state = attackType === 'punch' ? 'crouch_punch' : 'crouch_kick';
-    setPlayer1(prev => ({
-      ...prev,
-      state: state
-    }));
-    
-    // 攻擊後回到蹲下狀態，而不是idle
-    // setTimeout(() => {
-    //   setPlayer1(prev => {
-    //     // 檢查是否還按著S鍵
-    //     if (pressedKeys.has('s')) {
-    //       return { ...prev, state: 'crouch' };
-    //     } else {
-    //       return { ...prev, state: 'idle' };
-    //     }
-    //   });
-    // }, 600);
   };
 
   // 角色圖片 import
@@ -1447,7 +1345,7 @@ const movePlayer = (direction: 'left' | 'right') => {
               height: '120vh',
               left: `${(i * 8.33)}%`,
               transform: `rotate(${i * 30}deg)`,
-              transformOrigin: 'center bottom',
+              transformOrigin: 'center center',
               animationDelay: `${i * 0.2}s`
             }}
           />
@@ -1513,14 +1411,23 @@ const movePlayer = (direction: 'left' | 'right') => {
   };
 
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden"
-      style={{ 
-        background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
-        width: '100vw',
-        height: '100vh'
-      }}
-    >
+   // 1. 最外層的黑色背景容器 (置中用)
+   <div className="w-screen h-screen bg-black relative overflow-hidden">
+  {/* 2. 內層的遊戲畫布 (縮放用) */}
+    <div
+    className="relative overflow-hidden"
+    style={{
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      width: `${GAME_WIDTH}px`,
+      height: `${GAME_HEIGHT}px`,
+      // 這行 transform 會先將畫布的中心點移到父層的中心點(50%, 50%)，然後再進行縮放
+      transform: `translate(-50%, -50%) scale(${gameScale})`,
+      transformOrigin: 'center center',
+      background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4s13 50%, #1a1a1a 100%)',
+    }}
+  >
       {/* Level Battle UI */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
         <div className="flex justify-between items-center mb-4">
@@ -1598,10 +1505,15 @@ const movePlayer = (direction: 'left' | 'right') => {
 
       {/* 格鬥遊戲舞台 */}
       <div 
-        className="absolute inset-0 overflow-hidden"
+        className="absolute" // 不再需要 inset-0 和 overflow-hidden
         style={{
-          width: `${window.innerWidth}px`,
-          height: `${window.innerHeight}px`
+          // 【修改後#1】舞台的寬度應該是您設定的 2400px
+          width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`, 
+          height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+          // 【修改後#2】使用 left 屬性來移動舞台，模擬攝影機平移
+          // cameraX 的值由 rAF 主循環計算
+          left: `-${cameraX}px`,
+          top: 0,
         }}
       > {/* Controls */}
       <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
@@ -1653,7 +1565,7 @@ const movePlayer = (direction: 'left' | 'right') => {
             width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
             height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
             left: 0,
-            top: `${Math.max(0, window.innerHeight - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
+            top: `${Math.max(0, GAME_HEIGHT - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
           }}
         />
 
@@ -1743,6 +1655,7 @@ const movePlayer = (direction: 'left' | 'right') => {
             {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
           </div>
         ))}
+        </div>
       </div>
     </div>
   </div>
