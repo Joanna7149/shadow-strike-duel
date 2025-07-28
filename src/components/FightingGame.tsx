@@ -9,6 +9,7 @@ import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Play, Pause, Upload, RotateCcw, ArrowLeft, ArrowRight, ArrowDown, Shield } from 'lucide-react';
 import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
+import { soundManager } from '../lib/soundManager';
 
 // 移除舊的 texture 導入
 // import textureAtlas from '../statics/characters/MainHero/animations/texture.png';
@@ -368,6 +369,15 @@ const FightingGame: React.FC = () => {
     smoothing: 0.1 // 平滑移動係數
   });
   
+  // 在關卡開始時播放 BGM
+  useEffect(() => {
+    if (gameState.gamePhase === 'level-battle') {
+      soundManager.playBGM(gameState.currentLevel);
+    } else if (gameState.gamePhase === 'cover' || gameState.gamePhase === 'game-complete' || gameState.gamePhase === 'ending-animation') {
+      soundManager.stopBGM();
+    }
+  }, [gameState.gamePhase, gameState.currentLevel]);
+
   // 背景圖片路徑
   const backgroundImage = '/src/statics/backgrounds/stage1.png';
   
@@ -901,11 +911,19 @@ const FightingGame: React.FC = () => {
     addEffect('ko', 400, 200);
 
     setTimeout(() => {
+      // 先停止 BGM，避免與勝敗音效重疊
+      soundManager.stopBGM();
       if (winner === 'player1') {
+        if (gameState.currentLevel === 3) {
+          soundManager.playSFXByKey('victory_final', 'system');
+        } else {
+          soundManager.playSFXByKey('victory_round', 'system');
+        }
         setResultText('勝利！進入下一關');
         setResultType('win');
         setShowResultModal(true);
       } else {
+        soundManager.playSFXByKey('defeat_round', 'system');
         setResultText('失敗！再挑戰一次');
         setResultType('lose');
         setShowResultModal(true);
@@ -942,6 +960,8 @@ const FightingGame: React.FC = () => {
   };
 
   const resetPlayersForNewBattle = () => {
+    // 先停止所有音效與 BGM，避免重疊
+    soundManager.stopBGM();
     const newInitialPositions = calculateInitialPositions(viewport);
     setPlayer1(prev => ({
       ...prev,
@@ -961,24 +981,13 @@ const FightingGame: React.FC = () => {
       hitBox: { x: 600, y: 300, width: 40, height: 60 },
       hurtBox: { x: 600, y: 300, width: 40, height: 60 }
     }));
-  };
-
-  const startOpeningAnimation = () => {
-    setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
-  };
-
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setGameState(prev => ({ ...prev, playerPhoto: e.target?.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
+    // 重新播放該關卡 BGM
+    soundManager.playBGM(gameState.currentLevel);
   };
 
   const startFirstLevel = () => {
+    // 先停止所有音效與 BGM，避免重疊
+    soundManager.stopBGM();
     setGameState(prev => ({ 
       ...prev, 
       gamePhase: 'level-battle',
@@ -987,6 +996,8 @@ const FightingGame: React.FC = () => {
       isPaused: false
     }));
     resetPlayersForNewBattle();
+    // 第一關開始時播放 BGM
+    soundManager.playBGM(1);
   };
 
   const resetGame = () => {
