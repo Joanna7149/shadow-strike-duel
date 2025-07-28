@@ -225,6 +225,10 @@ interface Character {
   facing: 'left' | 'right';
   aiState?: 'IDLE' | 'APPROACHING' | 'ENGAGING' | 'DEFENSIVE' | 'SPECIAL_READY'; 
   aiActionTimer?: number; // 【新增】AI 的思考計時器 (單位：幀
+  aiCombo?: { // 【新增】儲存 AI 當前的連招狀態
+    sequence: readonly Character['state'][];
+    step: number;
+  } | null;
   state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead' | 'walk_forward' | 'walk_backward' | 'landing' | 'pre_jump';
   hitBox: { x: number; y: number; width: number; height: number };
   hurtBox: { x: number; y: number; width: number; height: number };
@@ -293,102 +297,116 @@ function isFacingOpponent(p1: Character, p2: Character) {
 
 // 【新增】AI 行為設定檔
 const AI_PROFILES = {
-  1: { // 第一關：火爆拳 - 莽夫
-    aggression: 0.8,    // 80% 的機率會主動攻擊
-    defenseChance: 0.1, // 只有 10% 的機率會防禦
-    attackRange: 180,   // 喜歡貼近了再打
-    preferredAttacks: ['kick', 'special_attack'] as const, 
-    comboChance: 0.2,   // 20% 機率打出第二拳
+  1: { // 第一關：火爆拳 - 壓迫式進攻者
+    attackRange: 180,
+    aggression: 0.8,
+    defenseChance: 0.2,
+    thinkingInterval: { min: 45, max: 75 }, // 思考間隔更短，更衝動
+    // 簡單直接的連招
+    combos: [
+      { sequence: ['punch', 'punch'] as const, chance: 0.7 },
+    ],
   },
-  2: { // 第二關：蛇鞭女 - 戰術家
+  2: { // 第二關：蛇鞭女 - 靈活的立回牽制者
+    attackRange: 220,
     aggression: 0.6,
-    defenseChance: 0.4,
-    attackRange: 220,   // 攻擊距離稍遠
-    preferredAttacks: ['kick', 'special_attack'] as const, 
-    comboChance: 0.5,
+    defenseChance: 0.5,
+    thinkingInterval: { min: 60, max: 90 },
+    // 更長的連招，拳腳混合
+    combos: [
+      { sequence: ['punch', 'kick'] as const, chance: 0.6 },
+      { sequence: ['kick', 'punch'] as const, chance: 0.5 },
+    ],
   },
-  3: { // 第三關：心控王 - 防守反擊大師
-    aggression: 0.5,
-    defenseChance: 0.7, // 非常喜歡防禦，等待機會
+  3: { // 第三關：心控王 - 耐心的機會主義者
     attackRange: 200,
-    preferredAttacks: ['kick', 'special_attack'] as const,
-    comboChance: 0.6,
+    aggression: 0.5,
+    defenseChance: 0.8,
+    thinkingInterval: { min: 90, max: 150 }, // 思考時間更長，更有耐心
+    // 會抓住機會使用必殺技的連招
+    combos: [
+      { sequence: ['kick', 'punch'] as const, chance: 0.5 },
+      { sequence: ['punch', 'special_attack'] as const, chance: 0.4 },
+    ],
   }
 };
 
 // 【新增】AI 的決策大腦 (FSM)
-function aiBrain(ai: Character, player: Character, level: number): { nextAiState: Character['aiState'], action: Character['state'], nextTimer: number } {
+function aiBrain(ai: Character, player: Character, level: number): { nextAiState: Character['aiState'], action: Character['state'], nextTimer: number, nextCombo: Character['aiCombo'] } {
   const profile = AI_PROFILES[level as keyof typeof AI_PROFILES];
   const distance = Math.abs(ai.position.x - player.position.x);
   let currentAiState = ai.aiState;
   let timer = ai.aiActionTimer || 0;
+  let currentCombo = ai.aiCombo;
 
-  // --- 1. 檢查是否需要做出「新的戰術決策」 ---
-  if (timer <= 0) {
-    // 計時器歸零，AI 需要重新評估局勢，決定接下來 1-2 秒要做什麼
-    const isPlayerAttacking = ['punch', 'kick', 'special_attack'].includes(player.state);
-    
-    if (ai.energy >= ai.maxEnergy) {
-      currentAiState = 'SPECIAL_READY';
-    } else if (isPlayerAttacking && distance < 300) {
-      currentAiState = 'DEFENSIVE';
-    } else if (distance > profile.attackRange + 50) {
-      currentAiState = 'APPROACHING';
-    } else {
-      currentAiState = 'ENGAGING';
+  // --- 1. 最高優先級：連招執行 ---
+  // 如果 AI 正在連招中，就繼續執行連招的下一步
+  if (currentCombo && currentCombo.step < currentCombo.sequence.length) {
+    const nextAttack = currentCombo.sequence[currentCombo.step];
+    // 檢查能量是否足夠 (針對連招中的必殺技)
+    if (nextAttack === 'special_attack' && ai.energy < ai.maxEnergy) {
+      return { nextAiState: 'IDLE', action: 'idle', nextTimer: 0, nextCombo: null }; // 能量不夠，中斷連招
     }
-    // 為新的戰術設定一個持續時間 (例如 60 幀 = 1 秒)
-    timer = 60 + Math.random() * 60; // 1 到 2 秒的隨機持續時間
+    return { 
+      nextAiState: ai.aiState, 
+      action: nextAttack, 
+      nextTimer: ai.aiActionTimer, 
+      nextCombo: { ...currentCombo, step: currentCombo.step + 1 } 
+    };
+  } else if (currentCombo) {
+    // 連招已結束，重置
+    currentCombo = null;
+  }
+
+  // --- 2. 策略層 (心態轉換) ---
+  if (timer <= 0) {
+    const isPlayerAttacking = ['punch', 'kick', 'special_attack'].includes(player.state);
+    if (ai.energy >= ai.maxEnergy) { currentAiState = 'SPECIAL_READY'; }
+    else if (isPlayerAttacking && distance < 300) { currentAiState = 'DEFENSIVE'; }
+    else if (distance > profile.attackRange + 50) { currentAiState = 'APPROACHING'; }
+    else { currentAiState = 'ENGAGING'; }
+    timer = profile.thinkingInterval.min + Math.random() * (profile.thinkingInterval.max - profile.thinkingInterval.min);
   } else {
-    // 計時器還沒結束，繼續執行當前戰術
     timer -= 1;
   }
 
-  // --- 2. 根據「當前戰術」執行具體動作 ---
+  // --- 3. 戰術層 (根據心態執行動作) ---
   let action: Character['state'] = 'idle';
 
   switch (currentAiState) {
     case 'SPECIAL_READY':
       action = (distance < 350) ? 'special_attack' : 'walk_forward';
       break;
-
     case 'DEFENSIVE':
-      // 處於防禦模式時，高機率防禦或後退
       action = (Math.random() < profile.defenseChance) ? 'defending' : 'walk_backward';
       break;
-
     case 'APPROACHING':
-      // 處於進攻模式時，堅決前進
-      action = 'walk_forward';
+      action = (level === 3 && Math.random() < 0.05) ? 'jump_kick' : 'walk_forward';
       break;
-
     case 'ENGAGING':
-      // 【核心優化】在交戰模式中，AI 會「思考」
-      // 它不會一直攻擊，而是會有策略地混合待機和防禦
+      // 在交戰心態中，決定是「發動連招」還是「立回」
       const choice = Math.random();
-      if (choice < profile.aggression) { // 根據攻擊性決定是否出招
-        let availableAttacks: readonly Character['state'][] = profile.preferredAttacks;
-        if (ai.energy < ai.maxEnergy) {
-          availableAttacks = availableAttacks.filter(attack => attack !== 'special_attack');
+      if (choice < profile.aggression) {
+        // 發動一次新的連招
+        const comboToDo = profile.combos.find(c => Math.random() < c.chance);
+        if (comboToDo) {
+          currentCombo = { sequence: comboToDo.sequence, step: 0 };
+          action = currentCombo.sequence[0]; // 執行連招的第一下
+          currentCombo.step = 1;
+        } else {
+          action = 'idle'; // 這次沒選中連招，選擇觀察
         }
-        if (availableAttacks.length > 0) {
-          action = availableAttacks[Math.floor(Math.random() * availableAttacks.length)];
-        }
-      } else if (choice < profile.aggression + profile.defenseChance) { // 根據防禦性決定是否防禦
-        action = 'defending';
       } else {
-        // 剩下的機率，AI 會選擇「待機觀察」，引誘玩家出招
-        action = 'idle';
+        // 【新增】立回 (來回踱步)
+        action = Math.random() < 0.5 ? 'walk_forward' : 'walk_backward';
       }
       break;
-    
     default:
       action = 'idle';
       break;
   }
 
-  // --- 3. 返回最終決策 (包含新的心態、動作和計時器) ---
-  return { nextAiState: currentAiState, action: action, nextTimer: timer };
+  return { nextAiState: currentAiState, action, nextTimer: timer, nextCombo: currentCombo };
 }
 
 const FightingGame: React.FC = () => {
@@ -463,6 +481,7 @@ const FightingGame: React.FC = () => {
     state: 'idle',
     aiState: 'IDLE', // AI 開始時的心態是「待機」
     aiActionTimer: 0, // 【新增】初始計時器為 0
+    aiCombo: null, // 【新增】初始連招為 null
     hitBox: { x: 600, y: 300, width: 40, height: 60 },
     hurtBox: { x: 600, y: 300, width: 40, height: 60 }
   });
@@ -744,26 +763,36 @@ setPlayer2(prev => {
   }
   
   const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump', 'jump_punch', 'jump_kick', 'pre_jump', 'landing'];
-  if (uninterruptibleStates.includes(prev.state)) {
-    // ... (只更新物理的邏輯保持不變)
-  }
+      // 【關鍵】如果 AI 正在執行不可中斷的動作，我們只更新物理，不呼叫大腦
+      if (uninterruptibleStates.includes(prev.state)) {
+        let nextVelocityY = prev.velocityY - GRAVITY;
+        let nextY = prev.position.y + nextVelocityY;
+        let nextIsGrounded = false;
+        if (nextY <= 0) { nextY = 0; nextVelocityY = 0; nextIsGrounded = true; }
 
-  const p1 = player1Ref.current;
-  
-  // 1. 從 AI 大腦獲取包含「心態」、「動作」和「新計時器」的決策
-  const decision = aiBrain(prev, p1, gameState.currentLevel);
+        return {
+          ...prev,
+          position: { ...prev.position, y: nextY },
+          velocityY: nextVelocityY,
+          isGrounded: nextIsGrounded,
+          // 【重要】如果 AI 正在連招中，動畫結束後不直接變回 idle，而是讓大腦在下一幀決定
+          state: (nextIsGrounded && !prev.isGrounded && !prev.aiCombo) ? 'idle' : prev.state
+        };
+      }
 
-  let nextState = decision.action;
-  let nextAiState = decision.nextAiState;
-  let nextTimer = decision.nextTimer; // 接收新的計時器
-  
-  // ... (後續的物理、移動、能量、命中旗幟等邏輯完全保持不變)
-  // ...
-  let nextX = prev.position.x;
-  let nextY = prev.position.y;
-  let nextVelocityY = prev.velocityY;
-  let nextIsGrounded = prev.isGrounded;
-  let energyUpdate = {};
+      const p1 = player1Ref.current;
+      const decision = aiBrain(prev, p1, gameState.currentLevel);
+
+      let nextState = decision.action;
+      let nextAiState = decision.nextAiState;
+      let nextTimer = decision.nextTimer;
+      let nextCombo = decision.nextCombo;
+      
+      let nextX = prev.position.x;
+      let nextY = prev.position.y;
+      let nextVelocityY = prev.velocityY;
+      let nextIsGrounded = prev.isGrounded;
+      let energyUpdate = {};
 
   nextVelocityY -= GRAVITY;
   nextY += nextVelocityY;
