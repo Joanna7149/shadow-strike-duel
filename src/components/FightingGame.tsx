@@ -87,11 +87,6 @@ const ANIMATION_CONFIGS = {
       path: 'crouch_kick',
       frameRate: 10
     },
-    defend: {
-      type: 'png' as const,
-      path: 'defend',
-      frameRate: 10
-    },
     hit: {
       type: 'png' as const,
       path: 'hit',
@@ -223,10 +218,12 @@ interface Character {
   velocityY: number; // 【新增】垂直速度，用於物理跳躍
   isGrounded: boolean; // 【新增】是否在地面上
   facing: 'left' | 'right';
-  aiState?: 'IDLE' | 'APPROACHING' | 'ENGAGING' | 'DEFENSIVE' | 'SPECIAL_READY'; 
+  aiState?: 'IDLE' | 'APPROACHING' | 'ENGAGING' | 'DEFENSIVE' | 'SPECIAL_READY' | 'ZONING' | 'SPACING'; 
   aiActionTimer?: number; // 【新增】AI 的思考計時器 (單位：幀
   aiCombo?: { // 【新增】儲存 AI 當前的連招狀態
-    sequence: readonly Character['state'][];
+    sequence: readonly (
+      'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk_forward' | 'walk_backward' | 'special_attack' | 'win_round' | 'dead' | 'landing' | 'pre_jump'
+    )[];
     step: number;
   } | null;
   state: 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk' | 'special_attack' | 'win_round' | 'dead' | 'walk_forward' | 'walk_backward' | 'landing' | 'pre_jump';
@@ -299,20 +296,20 @@ function isFacingOpponent(p1: Character, p2: Character) {
 const AI_PROFILES = {
   1: { // 第一關：火爆拳 - 壓迫式進攻者
     attackRange: 180,
-    aggression: 0.8,
+    aggression: 0.7, // 稍微降低猛攻機率，為試探留出空間
     defenseChance: 0.2,
-    thinkingInterval: { min: 45, max: 75 }, // 思考間隔更短，更衝動
-    // 簡單直接的連招
+    probeChance: 0.5, // 【新增】有 50% 的機率進行試探
+    thinkingInterval: { min: 45, max: 75 },
     combos: [
       { sequence: ['punch', 'punch'] as const, chance: 0.7 },
     ],
   },
   2: { // 第二關：蛇鞭女 - 靈活的立回牽制者
     attackRange: 220,
-    aggression: 0.6,
+    aggression: 0.5,
     defenseChance: 0.5,
+    probeChance: 0.6, // 【新增】更喜歡用試探來控制距離
     thinkingInterval: { min: 60, max: 90 },
-    // 更長的連招，拳腳混合
     combos: [
       { sequence: ['punch', 'kick'] as const, chance: 0.6 },
       { sequence: ['kick', 'punch'] as const, chance: 0.5 },
@@ -320,59 +317,164 @@ const AI_PROFILES = {
   },
   3: { // 第三關：心控王 - 耐心的機會主義者
     attackRange: 200,
-    aggression: 0.5,
+    aggression: 0.4,
     defenseChance: 0.8,
-    thinkingInterval: { min: 90, max: 150 }, // 思考時間更長，更有耐心
-    // 會抓住機會使用必殺技的連招
+    probeChance: 0.7, // 【新增】非常喜歡試探，引誘你出招
+    thinkingInterval: { min: 90, max: 150 },
     combos: [
       { sequence: ['kick', 'punch'] as const, chance: 0.5 },
       { sequence: ['punch', 'special_attack'] as const, chance: 0.4 },
     ],
   }
-};
+} as const;
 
-// 【新增】AI 的決策大腦 (FSM)
-function aiBrain(ai: Character, player: Character, level: number): { nextAiState: Character['aiState'], action: Character['state'], nextTimer: number, nextCombo: Character['aiCombo'] } {
-  const profile = AI_PROFILES[level as keyof typeof AI_PROFILES];
+// 2. 擴充 AI_PROFILES，並加入動態難度與行為參數（每關基礎值 + 連勝動態加成）
+function getDynamicAIProfile(level: number, winStreak: number) {
+  type Move = 'idle' | 'walk' | 'attacking' | 'defending' | 'crouching' | 'hit' | 'special' | 'victory' | 'death' | 'jump' | 'kick' | 'punch' | 'crouch' | 'crouch_punch' | 'crouch_kick' | 'jump_punch' | 'jump_kick' | 'walk_forward' | 'walk_backward' | 'special_attack' | 'win_round' | 'dead' | 'landing' | 'pre_jump';
+  // 每關的基礎參數
+  const baseProfiles = [
+    {
+      attackRange: 180,
+      aggression: 0.8,
+      defenseChance: 0.2,
+      probeChance: 0.4, // 【新增】第一關有 40% 機率試探
+      zoning: 0.2,
+      spacing: 0.2,
+      thinkingInterval: { min: 45, max: 75 },
+      combos: [
+        { sequence: ['punch', 'punch'] as readonly Move[], chance: 0.7 },
+        { sequence: ['kick', 'kick'] as readonly Move[], chance: 0.5 },
+        { sequence: ['punch', 'kick'] as readonly Move[], chance: 0.4 },
+      ],
+      prediction: 0.1,
+    },
+    {
+      attackRange: 220,
+      aggression: 0.9,
+      defenseChance: 0.4,
+      probeChance: 0.3, // 【新增】第二關試探機率降低，更傾向猛攻
+      zoning: 0.4,
+      spacing: 0.4,
+      thinkingInterval: { min: 35, max: 60 },
+      combos: [
+        { sequence: ['punch', 'kick'] as readonly Move[], chance: 0.7 },
+        { sequence: ['kick', 'punch'] as readonly Move[], chance: 0.6 },
+        { sequence: ['jump_kick', 'punch'] as readonly Move[], chance: 0.4 },
+        { sequence: ['crouch_punch', 'kick'] as readonly Move[], chance: 0.3 },
+      ],
+      prediction: 0.2,
+    },
+    {
+      attackRange: 200,
+      aggression: 1.0,
+      defenseChance: 0.6,
+      probeChance: 0.2, // 【新增】第三關試探機率最低，因為極具攻擊性
+      zoning: 0.6,
+      spacing: 0.6,
+      thinkingInterval: { min: 25, max: 45 },
+      combos: [
+        { sequence: ['kick', 'punch'] as readonly Move[], chance: 0.7 },
+        { sequence: ['punch', 'special_attack'] as readonly Move[], chance: 0.6 },
+        { sequence: ['jump_punch', 'kick', 'special_attack'] as readonly Move[], chance: 0.5 },
+        { sequence: ['crouch_kick', 'punch', 'kick'] as readonly Move[], chance: 0.4 },
+      ],
+      prediction: 0.3,
+    },
+  ];
+  // 動態難度加成（根據連勝數）
+  const streakBoost = Math.min(winStreak, 10) * 0.05; // 每連勝+5%，最多+50%
+  const profile = baseProfiles[Math.max(0, Math.min(level - 1, baseProfiles.length - 1))];
+  return {
+    ...profile,
+    aggression: Math.min(1, profile.aggression + streakBoost),
+    defenseChance: Math.min(1, profile.defenseChance + streakBoost * 0.5),
+    zoning: Math.min(1, profile.zoning + streakBoost * 0.5),
+    spacing: Math.min(1, profile.spacing + streakBoost * 0.5),
+    prediction: Math.min(1, profile.prediction + streakBoost * 0.5),
+    thinkingInterval: {
+      min: Math.max(10, profile.thinkingInterval.min - winStreak * 2),
+      max: Math.max(20, profile.thinkingInterval.max - winStreak * 2),
+    },
+    combos: [
+      ...profile.combos,
+      ...(winStreak > 2 ? [{ sequence: ['punch', 'kick', 'special_attack'] as readonly Move[], chance: 0.3 }] : []),
+      ...(winStreak > 4 ? [{ sequence: ['jump_kick', 'punch', 'kick'] as readonly Move[], chance: 0.2 }] : []),
+      ...(winStreak > 6 ? [{ sequence: ['crouch_punch', 'kick', 'special_attack'] as readonly Move[], chance: 0.2 }] : []),
+    ]
+  };
+}
+
+// 3. 重構 aiBrain，加入反應式擋格、預判、Zoning/Spacing、動態難度
+function aiBrain(ai: Character, player: Character, level: number, winStreak: number): { nextAiState: Character['aiState'], action: Character['state'], nextTimer: number, nextCombo: Character['aiCombo'] } {
+  const profile = getDynamicAIProfile(level, winStreak);
   const distance = Math.abs(ai.position.x - player.position.x);
   let currentAiState = ai.aiState;
   let timer = ai.aiActionTimer || 0;
   let currentCombo = ai.aiCombo;
 
+  // --- 0. 反應式擋格（偵測玩家攻擊即時擋格）---
+  const playerIsAttacking = ['punch', 'kick', 'special_attack', 'jump_punch', 'jump_kick', 'crouch_punch', 'crouch_kick'].includes(player.state);
+  if (playerIsAttacking && distance < profile.attackRange + 40 && Math.random() < profile.defenseChance + 0.2) {
+    return {
+      nextAiState: 'DEFENSIVE',
+      action: 'defending',
+      nextTimer: Math.floor(10 + Math.random() * 10),
+      nextCombo: null
+    };
+  }
+
   // --- 1. 最高優先級：連招執行 ---
-  // 如果 AI 正在連招中，就繼續執行連招的下一步
   if (currentCombo && currentCombo.step < currentCombo.sequence.length) {
     const nextAttack = currentCombo.sequence[currentCombo.step];
-    // 檢查能量是否足夠 (針對連招中的必殺技)
     if (nextAttack === 'special_attack' && ai.energy < ai.maxEnergy) {
-      return { nextAiState: 'IDLE', action: 'idle', nextTimer: 0, nextCombo: null }; // 能量不夠，中斷連招
+      return { nextAiState: 'IDLE', action: 'idle', nextTimer: 0, nextCombo: null };
     }
-    return { 
-      nextAiState: ai.aiState, 
-      action: nextAttack, 
-      nextTimer: ai.aiActionTimer, 
-      nextCombo: { ...currentCombo, step: currentCombo.step + 1 } 
+    return {
+      nextAiState: ai.aiState,
+      action: nextAttack,
+      nextTimer: ai.aiActionTimer,
+      nextCombo: { ...currentCombo, step: currentCombo.step + 1 }
     };
   } else if (currentCombo) {
-    // 連招已結束，重置
     currentCombo = null;
   }
 
   // --- 2. 策略層 (心態轉換) ---
   if (timer <= 0) {
-    const isPlayerAttacking = ['punch', 'kick', 'special_attack'].includes(player.state);
+    // 預判玩家行為（根據玩家最近的動作傾向）
+    let predictedAction: Character['state'] | null = null;
+    if (Math.random() < profile.prediction) {
+      // 例如：如果玩家連續前進，AI 預判攻擊
+      if (player.state === 'walk_forward' || player.state === 'walk') {
+        predictedAction = 'punch';
+      } else if (player.state === 'crouch' || player.state === 'crouch_punch' || player.state === 'crouch_kick') {
+        predictedAction = 'jump_kick';
+      } else if (player.state === 'jump' || player.state === 'jump_punch' || player.state === 'jump_kick') {
+        predictedAction = 'kick';
+      }
+    }
     if (ai.energy >= ai.maxEnergy) { currentAiState = 'SPECIAL_READY'; }
-    else if (isPlayerAttacking && distance < 300) { currentAiState = 'DEFENSIVE'; }
-    else if (distance > profile.attackRange + 50) { currentAiState = 'APPROACHING'; }
+    else if (playerIsAttacking && distance < profile.attackRange + 40) { currentAiState = 'DEFENSIVE'; }
+    else if (distance > profile.attackRange + 80) { currentAiState = 'APPROACHING'; }
+    else if (distance < profile.attackRange * 0.7 && Math.random() < profile.zoning) { currentAiState = 'ZONING'; }
+    else if (distance > profile.attackRange * 1.2 && Math.random() < profile.spacing) { currentAiState = 'SPACING'; }
     else { currentAiState = 'ENGAGING'; }
     timer = profile.thinkingInterval.min + Math.random() * (profile.thinkingInterval.max - profile.thinkingInterval.min);
+    // 預判行為立即觸發
+    if (predictedAction) {
+      return {
+        nextAiState: 'ENGAGING',
+        action: predictedAction,
+        nextTimer: timer,
+        nextCombo: null
+      };
+    }
   } else {
     timer -= 1;
   }
 
   // --- 3. 戰術層 (根據心態執行動作) ---
   let action: Character['state'] = 'idle';
-
   switch (currentAiState) {
     case 'SPECIAL_READY':
       action = (distance < 350) ? 'special_attack' : 'walk_forward';
@@ -381,31 +483,47 @@ function aiBrain(ai: Character, player: Character, level: number): { nextAiState
       action = (Math.random() < profile.defenseChance) ? 'defending' : 'walk_backward';
       break;
     case 'APPROACHING':
-      action = (level === 3 && Math.random() < 0.05) ? 'jump_kick' : 'walk_forward';
+      action = (Math.random() < 0.2) ? 'jump_kick' : 'walk_forward';
       break;
-    case 'ENGAGING':
-      // 在交戰心態中，決定是「發動連招」還是「立回」
-      const choice = Math.random();
-      if (choice < profile.aggression) {
-        // 發動一次新的連招
-        const comboToDo = profile.combos.find(c => Math.random() < c.chance);
-        if (comboToDo) {
-          currentCombo = { sequence: comboToDo.sequence, step: 0 };
-          action = currentCombo.sequence[0]; // 執行連招的第一下
+    case 'ZONING':
+      action = 'walk_backward'; // 主動拉開距離
+      break;
+    case 'SPACING':
+      action = 'walk_forward'; // 主動貼近
+      break;
+      case 'ENGAGING':
+        // 【核心升級】在交戰模式中，引入「試探」、「進攻」、「觀察」三段式決策
+        const choice = Math.random();
+        
+        // 1) 試探：執行一個安全的「打完就跑」的動作
+        if (choice < profile.probeChance) {
+          // 我們將「向前走一步 -> 出一拳 -> 向後走一步」定義為一個特殊的連招
+          currentCombo = { sequence: ['walk_forward', 'punch', 'walk_backward'], step: 0 };
+          action = currentCombo.sequence[0]; // 執行這個特殊連招的第一步
           currentCombo.step = 1;
-        } else {
-          action = 'idle'; // 這次沒選中連招，選擇觀察
+        } 
+        // 2) 進攻：執行一個真正的、有風險的猛攻連招
+        else if (choice < profile.probeChance + profile.aggression) {
+          const comboToDo = profile.combos.find(c => Math.random() < c.chance);
+          if (comboToDo) {
+            // 檢查能量是否足夠 (如果連招包含必殺技)
+            if (comboToDo.sequence.includes('special_attack') && ai.energy < ai.maxEnergy) {
+              action = 'idle'; // 能量不夠，放棄這次進攻
+            } else {
+              currentCombo = { sequence: comboToDo.sequence, step: 0 };
+              action = currentCombo.sequence[0];
+              currentCombo.step = 1;
+            }
+          } else {
+            action = 'idle'; // 沒選中連招，改為觀察
+          }
+        } 
+        // 3) 觀察：待在原地，引誘對手
+        else {
+          action = 'idle';
         }
-      } else {
-        // 【新增】立回 (來回踱步)
-        action = Math.random() < 0.5 ? 'walk_forward' : 'walk_backward';
-      }
-      break;
-    default:
-      action = 'idle';
-      break;
+        break;
   }
-
   return { nextAiState: currentAiState, action, nextTimer: timer, nextCombo: currentCombo };
 }
 
@@ -503,6 +621,9 @@ const FightingGame: React.FC = () => {
   const player2Ref = useRef(player2);
   const p1FrameRef = useRef(player1CurrentFrame);
   const p2FrameRef = useRef(player2CurrentFrame);
+
+  // 1. 新增 winStreak 狀態（用於動態難度曲線）
+  const [winStreak, setWinStreak] = useState(0); // 玩家連勝次數
 
   useEffect(() => {
     player1Ref.current = player1;
@@ -622,7 +743,7 @@ const handleP2AnimationComplete = () => {
     // AI 的攻擊、受擊、防禦動畫都屬於單次播放
     const isSinglePlayAnimation = [
       'punch', 'kick', 'crouch_punch', 'crouch_kick', 
-      'hit', 'special_attack', 'defend', 'attacking'
+      'hit', 'special_attack', 'defending', 'attacking'
     ].includes(prev.state);
 
     if (isSinglePlayAnimation) {
@@ -697,7 +818,7 @@ useEffect(() => {
       let energyUpdate = {};
 
       const canAct = () => {
-        const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump_punch', 'jump_kick', 'pre_jump', 'landing'];
+        const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump_punch', 'jump_kick', 'pre_jump', 'landing', 'defending'];
         return !uninterruptibleStates.includes(prev.state);
       };
 
@@ -762,7 +883,7 @@ setPlayer2(prev => {
     return prev;
   }
   
-  const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump', 'jump_punch', 'jump_kick', 'pre_jump', 'landing'];
+  const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump', 'jump_punch', 'jump_kick', 'pre_jump', 'landing', 'defending'];
       // 【關鍵】如果 AI 正在執行不可中斷的動作，我們只更新物理，不呼叫大腦
       if (uninterruptibleStates.includes(prev.state)) {
         let nextVelocityY = prev.velocityY - GRAVITY;
@@ -781,7 +902,7 @@ setPlayer2(prev => {
       }
 
       const p1 = player1Ref.current;
-      const decision = aiBrain(prev, p1, gameState.currentLevel);
+      const decision = aiBrain(prev, p1, gameState.currentLevel, winStreak); // 傳入 winStreak
 
       let nextState = decision.action;
       let nextAiState = decision.nextAiState;
@@ -884,16 +1005,29 @@ useEffect(() => {
 
       if (collisionDetected) { 
         player1HitRegisteredRef.current = true;
-        console.log("Collision detected!");
         
-        setPlayer2(prev => ({ 
-              ...prev,
-              health: Math.max(0, prev.health - 10),
-              state: 'hit'
-            }));
-            setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
-        // 使用您版本中更精確的特效位置
-        addEffect('hit', p2.position.x + (CHARACTER_WIDTH / 2), p2.position.y + (CHARACTER_HEIGHT / 2));
+        // 【核心修正】呼叫戰鬥結算中心
+        const result = calculateCombatResult(p1, p2, gameState.currentLevel);
+
+        if (result.defended) {
+          // AI 成功防禦
+          setPlayer2(prev => ({ 
+            ...prev, 
+            health: Math.max(0, prev.health - result.damage),
+            state: 'defending'
+          }));
+          addEffect('defending', p2.position.x, p2.position.y);
+        } else {
+          // AI 被命中
+          setPlayer2(prev => ({ 
+            ...prev, 
+            health: Math.max(0, prev.health - result.damage),
+            state: 'hit'
+          }));
+          // 命中後玩家增加能量
+          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+          addEffect('hit', p2.position.x, p2.position.y);
+        }
 
         setTimeout(() => {
           setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
@@ -901,23 +1035,21 @@ useEffect(() => {
       }
     }
   }
-}, [player1CurrentFrame, player2CurrentFrame]); // 觸發器是動畫幀數的改變
+}, [player1CurrentFrame, player2CurrentFrame]);
 
 useEffect(() => {
-  // 從 Ref 讀取最新的角色和幀數資料
   const p1 = player1Ref.current;
   const p2 = player2Ref.current;
   const p1Frame = p1FrameRef.current;
   const p2Frame = p2FrameRef.current;
 
-  // 檢查 AI 是否處於攻擊狀態
   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick', 'attacking'].includes(p2.state);
   
   if (
     gameState.gamePhase === 'level-battle' &&
     !gameState.isPaused &&
     isPlayer2Attacking &&
-    !player2HitRegisteredRef.current && // 【修改後】增加對旗幟的判斷
+    !player2HitRegisteredRef.current &&
     player1CollisionData &&
     player2CollisionData
   ) {
@@ -932,29 +1064,37 @@ useEffect(() => {
       );
 
       if (collisionDetected) { 
-        player2HitRegisteredRef.current = true; // 【修改後】命中後，立刻將旗幟設為 true
-        // 這裡我們不需要 hit ref，因為 AI 的攻擊判定通常比較簡單
-        console.log("AI Collision detected!");
+        player2HitRegisteredRef.current = true;
         
-        // 玩家被命中
-        setPlayer1(prev => ({ 
-          ...prev, 
-          health: Math.max(0, prev.health - 10),
-          state: 'hit'
-        }));
-        // 【新增】AI 命中後，增加自己的能量
-        setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 15) })); // 假設每次命中增加 15 點能量
+        // 【核心修正】呼叫戰鬥結算中心
+        const result = calculateCombatResult(p2, p1, gameState.currentLevel);
 
-        addEffect('hit', p1.position.x, p1.position.y);
+        if (result.defended) {
+          // 玩家成功防禦
+          setPlayer1(prev => ({ 
+            ...prev, 
+            health: Math.max(0, prev.health - result.damage),
+            state: 'defending'
+          }));
+          addEffect('defending', p1.position.x, p1.position.y);
+        } else {
+          // 玩家被命中
+          setPlayer1(prev => ({ 
+            ...prev, 
+            health: Math.max(0, prev.health - result.damage),
+            state: 'hit'
+          }));
+          // 命中後 AI 增加能量
+          setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+          addEffect('hit', p1.position.x, p1.position.y);
+        }
 
-        // 玩家被擊中後，在短時間內回到 idle
         setTimeout(() => {
           setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
         }, 500);
       }
     }
   }
-// 觸發器：同樣由動畫幀數改變時觸發
 }, [player1CurrentFrame, player2CurrentFrame]);
 
 // 【新增】這個 useEffect 用於處理起跳前的準備動作
@@ -1073,7 +1213,51 @@ function isCollision(rect1: Box, rect2: Box) {
     rect1.y + rect1.height > rect2.y
   );
 }
+// 【新增】戰鬥結算中心 (傷害計算機)
+function calculateCombatResult(
+  attacker: Character, 
+  defender: Character, 
+  level: number
+): { damage: number; energyGain: number; defended: boolean } {
+  
+  let baseDamage = 0;
+  let energyGain = 0;
+  let damageReduction = 0;
+  const attackType = attacker.state;
 
+  // 1. 根據攻擊類型，決定基礎傷害、能量獲取、防禦減傷值
+  if (attackType.includes('punch')) {
+    baseDamage = 5;
+    energyGain = 15;
+    damageReduction = 3;
+  } else if (attackType.includes('kick')) {
+    baseDamage = 10;
+    energyGain = 20;
+    damageReduction = 5;
+  } else if (attackType.includes('special_attack')) {
+    baseDamage = 30; // 假設必殺技傷害為 30
+    energyGain = 0; // 必殺技不增加能量
+    damageReduction = 15; // 必殺技也可被防禦，但減傷較多
+  }
+
+  // 2. 如果攻擊者是 AI，根據關卡增加傷害
+  if (attacker.id === 'player2') {
+    const levelBonus = [0, 1, 3, 5]; // 關卡 0(無效), 1, 2, 3 的傷害加成
+    baseDamage += levelBonus[level] || 0;
+  }
+
+  // 3. 判斷被攻擊方是否成功防禦 (後退或主動防禦)
+  const isDefending = defender.state === 'defending' || defender.state === 'walk_backward';
+  
+  if (isDefending) {
+    // 防禦成功
+    const finalDamage = Math.max(0, baseDamage - damageReduction);
+    return { damage: finalDamage, energyGain: 0, defended: true }; // 防禦成功，攻擊方不得能量
+  } else {
+    // 命中成功
+    return { damage: baseDamage, energyGain: energyGain, defended: false };
+  }
+}
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
@@ -1216,6 +1400,7 @@ function isCollision(rect1: Box, rect2: Box) {
   const handleResultModalClose = () => {
     setShowResultModal(false);
     if (resultType === 'win') {
+      setWinStreak(s => s + 1); // 連勝+1
       // 【修改後】只判斷關卡數是否為 3
       if (gameState.currentLevel === 3) {
         setGameState(prev => ({ ...prev, gamePhase: 'ending-animation', lastResult: 'win', isPaused: false }));
@@ -1231,6 +1416,7 @@ function isCollision(rect1: Box, rect2: Box) {
         resetPlayersForNewBattle();
       }
     } else {
+      setWinStreak(0); // 失敗歸零
       setGameState(prev => ({
         ...prev,
         timeLeft: 60,
@@ -1759,73 +1945,67 @@ function isCollision(rect1: Box, rect2: Box) {
           className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
             left: player1.position.x, 
-              bottom: `${player1.position.y}px`, // 簡化Y軸定位
-              width: CHARACTER_WIDTH,
-              height: CHARACTER_HEIGHT,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none'
-            }}
-          >
-            <AnimationPlayer
-              source={getAnimationSource(player1.state)}
-              facing={player1.facing}
-              state={player1.state}
-              setPlayer={setPlayer1}
-              width={CHARACTER_WIDTH}
-              height={CHARACTER_HEIGHT}
-              isPlayer1={true}
-              onFrameChange={setPlayer1CurrentFrame}
-              onComplete={handleP1AnimationComplete} // <--- 新增這一行
-            />
-            {/* {renderBoxes(getHurtBox(player1, player1CurrentFrame), player1, 'hurt')} */}
-            {/* {renderBoxes(getAttackHitBox(player1, player1CurrentFrame), player1, 'hit')} */}
+            bottom: `${player1.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none'
+          }}
+        >
+          <AnimationPlayer
+            source={getAnimationSource(player1.state)}
+            facing={player1.facing}
+            state={player1.state}
+            setPlayer={setPlayer1}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={true}
+            onFrameChange={setPlayer1CurrentFrame}
+            onComplete={handleP1AnimationComplete}
+          />
         </div>
-
         {/* Player 2 (AI) */}
         <div 
-  className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
+          className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
             left: player2.position.x, 
-              bottom: `${player2.position.y}px`, // 簡化Y軸定位
-              width: CHARACTER_WIDTH,
-              height: CHARACTER_HEIGHT,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none'
-            }}
-          >
-            <AnimationPlayer
-      source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
-              facing={player2.facing}
-              state={player2.state}
-              width={CHARACTER_WIDTH}
-              height={CHARACTER_HEIGHT}
-              isPlayer1={false}
-              onFrameChange={setPlayer2CurrentFrame}
-              setPlayer={setPlayer2}
-              onComplete={handleP2AnimationComplete} // 【修改後】新增 onComplete 屬性
-            />
-    {/* {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt')} */}
-    {/* {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')} */}
+            bottom: `${player2.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none'
+          }}
+        >
+          <AnimationPlayer
+            source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
+            facing={player2.facing}
+            state={player2.state}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={false}
+            onFrameChange={setPlayer2CurrentFrame}
+            setPlayer={setPlayer2}
+            onComplete={handleP2AnimationComplete}
+          />
         </div>
-    {/* RENDER BOXES HERE, AT THE TOP LEVEL */}
-    {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
-    {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
-    {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
-    {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
-
+        {/* Debug hit/hurt boxes */}
+        {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
+        {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
+        {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
+        {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
         {/* Effects */}
         {effects.map(effect => (
           <div
             key={effect.id}
             className="absolute pointer-events-none"
-              style={{ 
+            style={{ 
               left: effect.x, 
               bottom: `${effect.y}px`
-              }}
+            }}
           >
             {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
             {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
@@ -1838,9 +2018,9 @@ function isCollision(rect1: Box, rect2: Box) {
         ))}
         </div>
       </div>
-        </div>
     </div>
-  );
-}
+  </div>
+);
+};
 
 export default FightingGame;
