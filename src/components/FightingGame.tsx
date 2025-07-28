@@ -290,11 +290,12 @@ function isFacingOpponent(p1: Character, p2: Character) {
 }
 
 const FightingGame: React.FC = () => {
-  // 【新增】預先計算角色和攝影機的理想初始位置
-  const initialP1X = (FIGHTING_STAGE_CONSTANTS.backgroundWidth / 2) - 400;
-  const initialP2X = (FIGHTING_STAGE_CONSTANTS.backgroundWidth / 2) + 400;
+  // 【修正】預先計算角色和攝影機的理想初始位置
+  // 角色應該在遊戲畫面的兩側，而不是整個舞台的兩側
+  const initialP1X = 200; // 玩家在畫面左側
+  const initialP2X = GAME_WIDTH - CHARACTER_WIDTH - 100; // AI在畫面右側
   const initialMidpoint = (initialP1X + initialP2X) / 2;
-  const initialCameraX = initialMidpoint - (GAME_WIDTH / 2);
+  const initialCameraX = 0; // 攝影機從舞台左側開始
 
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
@@ -495,19 +496,19 @@ const FightingGame: React.FC = () => {
   // Battle controls
   // handleKeyDown 現在只處理「按下那一下」就觸發的動作，例如攻擊、跳躍
 // 【修改後】handleKeyDown 只負責「記錄」按鍵按下
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
-  const key = e.key.toLowerCase();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+      const key = e.key.toLowerCase();
   
-  setPressedKeys(prev => {
+      setPressedKeys(prev => {
     const newKeys = new Set(prev);
     newKeys.add(key);
     return newKeys;
-  });
+      });
 
   // Dash 的 key buffer 邏輯可以保留，因為它依賴於按鍵事件的時機
-  keyBufferRef.current.push({ key, time: Date.now() });
-  if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
+      keyBufferRef.current.push({ key, time: Date.now() });
+      if (keyBufferRef.current.length > 10) keyBufferRef.current.shift();
 };
 // [NEW] 簡化的 handleKeyUp，只負責從 pressedKeys 中移除按鍵
 const handleKeyUp = (e: KeyboardEvent) => {
@@ -647,7 +648,7 @@ useEffect(() => {
       if (nextState === 'walk_forward') {
         const direction = prev.position.x > p1.position.x ? 'left' : 'right';
         nextX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
-      }
+          }
       
       // 【關鍵修正】讓 AI 也遵守攝影機邊界
       const minX = cameraXRef.current;
@@ -713,11 +714,11 @@ useEffect(() => {
         console.log("Collision detected!");
         
         setPlayer2(prev => ({ 
-          ...prev, 
-          health: Math.max(0, prev.health - 10),
-          state: 'hit'
-        }));
-        setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
+              ...prev,
+              health: Math.max(0, prev.health - 10),
+              state: 'hit'
+            }));
+            setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + 10) }));
         // 使用您版本中更精確的特效位置
         addEffect('hit', p2.position.x + (CHARACTER_WIDTH / 2), p2.position.y + (CHARACTER_HEIGHT / 2));
 
@@ -784,7 +785,7 @@ useEffect(() => {
 useEffect(() => {
   if (player1.state === 'pre_jump') {
     const preJumpTimeout = setTimeout(() => {
-      setPlayer1(prev => {
+        setPlayer1(prev => {
         if (prev.state === 'pre_jump') {
           return { ...prev, state: 'jump', velocityY: 18 }; // 這裡直接賦予跳躍速度
         }
@@ -802,10 +803,10 @@ useEffect(() => {
       setPlayer1(prev => {
         // 確保是在 landing 狀態時才變回 idle
         if (prev.state === 'landing') {
-          return { ...prev, state: 'idle' };
-        }
-        return prev;
-      });
+            return { ...prev, state: 'idle' };
+          }
+          return prev;
+        });
     }, 100); // 100 毫秒的落地延遲，可以調整這個數值
 
     return () => clearTimeout(landingTimeout);
@@ -842,12 +843,12 @@ useEffect(() => {
   }, [gameState.currentLevel]);
 
 
-// 4. 動態取得 hitbox/hurtbox（支援 facing）
+  // 4. 動態取得 hitbox/hurtbox（支援 facing）
 function getHurtBox(target: Character, currentFrame: number, data: CharacterCollisionData | null): Box[] {
   if (!data) return []; // <-- 正確使用傳入的 data
   const anim = data[target.state as keyof typeof data] || data['idle'];
   const frameData = anim?.[String(currentFrame)]?.hurtBox || []; // 取得當前幀的 hurtBox
-  return frameData.map(box => {
+    return frameData.map(box => {
     // 計算基於角色朝向的局部 X 座標
         const localX = target.facing === 'right'
     // const transformedX = target.facing === 'left'
@@ -861,13 +862,13 @@ function getHurtBox(target: Character, currentFrame: number, data: CharacterColl
     // const globalY = target.position.y + box.y; // Y 軸通常不需要翻轉，只需加上角色 Y 位置
 
     return { x: globalX, y: globalY, width: box.width, height: box.height };
-  });
-}
+    });
+  }
 function getAttackHitBox(attacker: Character, currentFrame: number, data: CharacterCollisionData | null): Box[] {
   if (!data) return []; // <-- 正確使用傳入的 data
   const anim = data[attacker.state as keyof typeof data] || data['idle'];
-  const frameData = anim?.[String(currentFrame)]?.hitBox || [];
-  return frameData.map(box => {
+    const frameData = anim?.[String(currentFrame)]?.hitBox || [];
+    return frameData.map(box => {
     // 根據角色朝向調整局部 X 座標
     // 如果 collision_data.json 是面向左邊的座標，
     // 那麼當 attacker.facing === 'left' 時，直接使用 box.x
@@ -900,11 +901,11 @@ function isCollision(rect1: Box, rect2: Box) {
   // Dash (前衝/後衝)
   const dashPlayer = (direction: 'left' | 'right') => {
     setPlayer1(prev => {
-    const minX = 0;
-    // 【修改後】邊界應該是整個大舞台
-    const maxX = FIGHTING_STAGE_CONSTANTS.backgroundWidth - CHARACTER_WIDTH;
-    let newX = prev.position.x + (direction === 'left' ? -100 : 100);
-    newX = Math.max(minX, Math.min(maxX, newX));
+    // 【修正】使用與遊戲主循環一致的邊界邏輯
+    const minX = cameraXRef.current; // 攝影機的左邊緣
+    const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH; // 攝影機的右邊緣
+      let newX = prev.position.x + (direction === 'left' ? -100 : 100);
+      newX = Math.max(minX, Math.min(maxX, newX));
       
       addEffect('dash', newX, prev.position.y);
       return {
@@ -937,12 +938,18 @@ function isCollision(rect1: Box, rect2: Box) {
     if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
     const distance = Math.abs(player2.position.x - player1.position.x);
     const action = Math.random();
-  
+
     if (distance > 120) {
       const direction = player2.position.x > player1.position.x ? 'left' : 'right';
       setPlayer2(prev => ({
         ...prev,
-        position: { ...prev.position, x: direction === 'left' ? Math.max(50, prev.position.x - 35) : Math.min(window.innerWidth - CHARACTER_WIDTH, prev.position.x + 35) },
+        // 【修正】使用與遊戲主循環一致的邊界邏輯
+        position: {
+          ...prev.position,
+          x: direction === 'left' 
+            ? Math.max(cameraXRef.current, prev.position.x - 35) 
+            : Math.min(cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH, prev.position.x + 35) 
+        },
         facing: direction,
         state: 'walk_forward'
       }));
@@ -1064,7 +1071,7 @@ function isCollision(rect1: Box, rect2: Box) {
       ...prev, 
       health: 100, 
       energy: 0, // 歸零
-      osition: { x: initialP1X, y: 0 },
+      position: { x: initialP1X, y: 0 },
       state: 'idle',
       hitBox: { x: 200, y: 300, width: 40, height: 60 },
       hurtBox: { x: 200, y: 300, width: 40, height: 60 }
@@ -1389,7 +1396,7 @@ function isCollision(rect1: Box, rect2: Box) {
   
   // 工具函數：將局部 box 轉為全局座標，正確處理 facing
   const renderBoxes = (boxes: Box[], characterId: string, boxType: 'hit' | 'hurt') => {
-    const borderColor = boxType === 'hit' ? 'red' : 'blue';
+      const borderColor = boxType === 'hit' ? 'red' : 'blue';
     return boxes.map((box, index) => {
       return (
         <div
@@ -1414,9 +1421,9 @@ function isCollision(rect1: Box, rect2: Box) {
    // 1. 最外層的黑色背景容器 (置中用)
    <div className="w-screen h-screen bg-black relative overflow-hidden">
   {/* 2. 內層的遊戲畫布 (縮放用) */}
-    <div
+    <div 
     className="relative overflow-hidden"
-    style={{
+      style={{ 
       position: 'absolute',
       top: '50%',
       left: '50%',
@@ -1426,8 +1433,8 @@ function isCollision(rect1: Box, rect2: Box) {
       transform: `translate(-50%, -50%) scale(${gameScale})`,
       transformOrigin: 'center center',
       background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4s13 50%, #1a1a1a 100%)',
-    }}
-  >
+      }}
+    >
       {/* Level Battle UI */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
         <div className="flex justify-between items-center mb-4">
@@ -1575,7 +1582,7 @@ function isCollision(rect1: Box, rect2: Box) {
         <div 
           className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
           style={{ 
-              left: player1.position.x, 
+            left: player1.position.x, 
               bottom: `${player1.position.y}px`, // 簡化Y軸定位
               width: CHARACTER_WIDTH,
               height: CHARACTER_HEIGHT,
@@ -1600,33 +1607,33 @@ function isCollision(rect1: Box, rect2: Box) {
             {/* {renderBoxes(getAttackHitBox(player1, player1CurrentFrame), player1, 'hit')} */}
         </div>
 
-{/* Player 2 (AI) */}
-<div 
+        {/* Player 2 (AI) */}
+        <div 
   className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
-  style={{ 
-    left: player2.position.x, 
-      bottom: `${player2.position.y}px`, // 簡化Y軸定位
-      width: CHARACTER_WIDTH,
-      height: CHARACTER_HEIGHT,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      pointerEvents: 'none'
-    }}
-  >
-    <AnimationPlayer
+          style={{ 
+            left: player2.position.x, 
+              bottom: `${player2.position.y}px`, // 簡化Y軸定位
+              width: CHARACTER_WIDTH,
+              height: CHARACTER_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none'
+            }}
+          >
+            <AnimationPlayer
       source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
-      facing={player2.facing}
-      state={player2.state}
-      width={CHARACTER_WIDTH}
-      height={CHARACTER_HEIGHT}
-      isPlayer1={false}
-      onFrameChange={setPlayer2CurrentFrame}
-      setPlayer={setPlayer2}
-    />
+              facing={player2.facing}
+              state={player2.state}
+              width={CHARACTER_WIDTH}
+              height={CHARACTER_HEIGHT}
+              isPlayer1={false}
+              onFrameChange={setPlayer2CurrentFrame}
+              setPlayer={setPlayer2}
+            />
     {/* {renderBoxes(getHurtBox(player2, player2CurrentFrame), player2, 'hurt')} */}
     {/* {renderBoxes(getAttackHitBox(player2, player2CurrentFrame), player2, 'hit')} */}
-</div>
+        </div>
     {/* RENDER BOXES HERE, AT THE TOP LEVEL */}
     {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
     {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
@@ -1641,10 +1648,10 @@ function isCollision(rect1: Box, rect2: Box) {
           <div
             key={effect.id}
             className="absolute pointer-events-none"
-            style={{ 
+              style={{ 
               left: effect.x, 
               bottom: `${effect.y}px`
-            }}
+              }}
           >
             {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
             {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
@@ -1657,9 +1664,9 @@ function isCollision(rect1: Box, rect2: Box) {
         ))}
         </div>
       </div>
+        </div>
     </div>
-  </div>
-);
+  );
 }
 
 export default FightingGame;
