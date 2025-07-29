@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -542,11 +541,17 @@ const FightingGame: React.FC = () => {
       // 跳躍中攻擊判斷
       if (player1.state === 'jump') {
         if (key === 'j') {
+          // 播放跳躍攻擊音效
+          soundManager.playPlayerAction('punch');
+          
           setPlayer1(prev => ({ ...prev, state: 'jump_punch' }));
           // 命中判斷
           const hitBox = getAttackHitBox(player1, player1.facing);
           const hurtBox = getHurtBox(player2);
           if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+            // 播放敵人受傷音效
+            soundManager.playBossAction('hit', gameState.currentLevel);
+            
             setPlayer2(prev => ({
               ...prev,
               health: Math.max(0, prev.health - 10),
@@ -559,11 +564,17 @@ const FightingGame: React.FC = () => {
           return;
         }
         if (key === 'k') {
+          // 播放跳躍攻擊音效
+          soundManager.playPlayerAction('kick');
+          
           setPlayer1(prev => ({ ...prev, state: 'jump_kick' }));
           // 命中判斷
           const hitBox = getAttackHitBox(player1, player1.facing);
           const hurtBox = getHurtBox(player2);
           if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+            // 播放敵人受傷音效
+            soundManager.playBossAction('hit', gameState.currentLevel);
+            
             setPlayer2(prev => ({
               ...prev,
               health: Math.max(0, prev.health - 10),
@@ -781,6 +792,9 @@ const FightingGame: React.FC = () => {
   // 這裡以 attackPlayer 為例，其他攻擊函式可依此類推。
   // 2. 只有攻擊命中對手時才加能量，不能超過 maxEnergy
   const attackPlayer = () => {
+    // 播放攻擊音效
+    soundManager.playPlayerAction('punch');
+    
     setPlayer1(prev => ({
       ...prev,
       state: 'punch'
@@ -790,6 +804,9 @@ const FightingGame: React.FC = () => {
     const hitBox = getAttackHitBox(player1, player1.facing);
     const hurtBox = getHurtBox(player2);
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      // 播放敵人受傷音效
+      soundManager.playBossAction('hit', gameState.currentLevel);
+      
       setPlayer2(prev => ({
         ...prev,
         health: Math.max(0, prev.health - 5),
@@ -804,6 +821,9 @@ const FightingGame: React.FC = () => {
   // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
   const specialAttack = () => {
     if (player1.energy >= player1.maxEnergy) {
+      // 播放特殊攻擊音效
+      soundManager.playPlayerAction('special');
+      
       setPlayer1(prev => ({
         ...prev,
         state: 'special',
@@ -814,6 +834,9 @@ const FightingGame: React.FC = () => {
         const hitBox = getAttackHitBox(player1, player1.facing);
         const hurtBox = getHurtBox(player2);
         if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+          // 播放敵人受傷音效
+          soundManager.playBossAction('hit', gameState.currentLevel);
+          
           setPlayer2(prev => ({
             ...prev,
             health: Math.max(0, prev.health - 25),
@@ -847,8 +870,12 @@ const FightingGame: React.FC = () => {
       // 更高機率攻擊
       if (action < 0.8) {
         // Attack
+        soundManager.playBossAction('punch', gameState.currentLevel);
         setPlayer2(prev => ({ ...prev, state: 'attacking' }));
         if (player1.state !== 'defending') {
+          // 播放玩家受傷音效
+          soundManager.playPlayerAction('hit');
+          
           setPlayer1(prev => ({ 
             ...prev, 
             health: Math.max(0, prev.health - 5),
@@ -859,6 +886,7 @@ const FightingGame: React.FC = () => {
         }
       } else if (action < 0.98 && player2.energy >= 50) {
         // Special
+        soundManager.playBossAction('special', gameState.currentLevel);
         setPlayer2(prev => ({ 
           ...prev, 
           state: 'special',
@@ -904,6 +932,13 @@ const FightingGame: React.FC = () => {
       winner = 'player1';
     } else {
       winner = 'player2';
+    }
+
+    // 播放失敗者的倒地音效
+    if (winner === 'player1') {
+      soundManager.playBossAction('knockdown', gameState.currentLevel);
+    } else {
+      soundManager.playPlayerAction('knockdown');
     }
 
     setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'death' }));
@@ -985,19 +1020,49 @@ const FightingGame: React.FC = () => {
     soundManager.playBGM(gameState.currentLevel);
   };
 
+  const startOpeningAnimation = () => {
+    setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
+    setOpeningStep(0);
+  };
+
   const startFirstLevel = () => {
-    // 先停止所有音效與 BGM，避免重疊
-    soundManager.stopBGM();
     setGameState(prev => ({ 
       ...prev, 
       gamePhase: 'level-battle',
       currentLevel: 1,
-      timeLeft: 60,
-      isPaused: false
+      timeLeft: 60 
     }));
-    resetPlayersForNewBattle();
-    // 第一關開始時播放 BGM
+    const newInitialPositions = calculateInitialPositions(viewport);
+    setPlayer1(prev => ({
+      ...prev,
+      health: 100, 
+      energy: 0, // 歸零
+      position: { x: newInitialPositions.player1X, y: 0 },
+      state: 'idle',
+      hitBox: { x: 200, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 200, y: 300, width: 40, height: 60 }
+    }));
+    setPlayer2(prev => ({
+      ...prev,
+      health: 100, 
+      energy: 100, 
+      position: { x: newInitialPositions.player2X, y: 0 },
+      state: 'idle',
+      hitBox: { x: 600, y: 300, width: 40, height: 60 },
+      hurtBox: { x: 600, y: 300, width: 40, height: 60 }
+    }));
     soundManager.playBGM(1);
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setGameState(prev => ({ ...prev, playerPhoto: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const resetGame = () => {
@@ -1033,6 +1098,10 @@ const FightingGame: React.FC = () => {
   // 方向跳與原地跳邏輯
   const jumpPlayer = () => {
     if (player1.state === 'jump') return; // 避免連續觸發
+    
+    // 播放跳躍音效
+    soundManager.playPlayerAction('jump');
+    
     const jumpHeight = 200;
     const upTime = 500;
     const downTime = 500;
@@ -1058,6 +1127,9 @@ const FightingGame: React.FC = () => {
     }, upTime);
   };
   const kickPlayer = () => {
+    // 播放踢擊音效
+    soundManager.playPlayerAction('kick');
+    
     setPlayer1(prev => ({
       ...prev,
       state: 'kick'
@@ -1067,6 +1139,9 @@ const FightingGame: React.FC = () => {
     const hitBox = getAttackHitBox(player1, player1.facing);
     const hurtBox = getHurtBox(player2);
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      // 播放敵人受傷音效
+      soundManager.playBossAction('hit', gameState.currentLevel);
+      
       setPlayer2(prev => ({
         ...prev,
         health: Math.max(0, prev.health - 10),
@@ -1082,6 +1157,10 @@ const FightingGame: React.FC = () => {
   // 跳躍攻擊邏輯
   const jumpAttack = (attackType: 'punch' | 'kick' | 'special') => {
     if (attackType === 'special' && player1.energy < player1.maxEnergy) return;
+    
+    // 播放跳躍音效
+    soundManager.playPlayerAction('jump');
+    
     const jumpHeight = 200;
     const upTime = 500;
     const downTime = 500;
@@ -1101,10 +1180,22 @@ const FightingGame: React.FC = () => {
       setPlayer1(prev => ({ ...prev, state: 'jump', position: { ...prev.position, x: targetX, y: jumpHeight } }));
       // 空中攻擊判斷
       setTimeout(() => {
+        // 播放攻擊音效
+        if (attackType === 'punch') {
+          soundManager.playPlayerAction('punch');
+        } else if (attackType === 'kick') {
+          soundManager.playPlayerAction('kick');
+        } else if (attackType === 'special') {
+          soundManager.playPlayerAction('special');
+        }
+        
         // 命中判斷
         const hitBox = getAttackHitBox({ ...player1, position: { ...player1.position, x: targetX, y: jumpHeight } }, player1.facing);
         const hurtBox = getHurtBox(player2);
         if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+          // 播放敵人受傷音效
+          soundManager.playBossAction('hit', gameState.currentLevel);
+          
           setPlayer2(prev => ({
             ...prev,
             health: Math.max(0, prev.health - (attackType === 'special' ? 35 : 25)),
@@ -1124,6 +1215,13 @@ const FightingGame: React.FC = () => {
   };
 
   const crouchAttack = (attackType: 'punch' | 'kick') => {
+    // 播放攻擊音效
+    if (attackType === 'punch') {
+      soundManager.playPlayerAction('punch');
+    } else {
+      soundManager.playPlayerAction('kick');
+    }
+    
     const state = attackType === 'punch' ? 'crouch_punch' : 'crouch_kick';
     setPlayer1(prev => ({
       ...prev,
@@ -1146,6 +1244,9 @@ const FightingGame: React.FC = () => {
     const hitBox = getAttackHitBox(player1, player1.facing);
     const hurtBox = getHurtBox(player2);
     if (isFacingOpponent(player1, player2) && isCollision(hitBox, hurtBox)) {
+      // 播放敵人受傷音效
+      soundManager.playBossAction('hit', gameState.currentLevel);
+      
       setPlayer2(prev => ({
         ...prev,
         health: Math.max(0, prev.health - 10),
