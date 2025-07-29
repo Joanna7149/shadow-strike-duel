@@ -234,7 +234,7 @@ interface Character {
 interface GameState {
   timeLeft: number;
   currentLevel: number;
-  gamePhase: 'cover' | 'opening-animation' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'game-complete';
+  gamePhase: 'cover' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'game-complete' | 'vs-screen';
   isPaused: boolean;
   playerPhoto: string | null;
   lastResult?: 'win' | 'lose' | null;
@@ -257,7 +257,8 @@ const LEVELS = [
     boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
     description: '在燃燒的倉庫中，你遇到了火爆拳...',
-    bgImage: '/statics/backgrounds/Stage1/stage1.png'
+    bgImage: '/statics/backgrounds/Stage1/stage1.png',
+    bgmSrc: '/statics/bgm/stage1.mp3' // 【新增】第一關的 BGM 路徑
   },
   { 
     id: 2, 
@@ -265,7 +266,8 @@ const LEVELS = [
     boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
     description: '廢棄的月台上，蛇鞭女正等著你...',
-    bgImage: '/statics/backgrounds/Stage2/stage2.png'
+    bgImage: '/statics/backgrounds/Stage2/stage2.png',
+    bgmSrc: '/statics/bgm/stage2.mp3' // 【新增】第一關的 BGM 路徑
   },
   { 
     id: 3, 
@@ -273,16 +275,17 @@ const LEVELS = [
     boss: '心控王',
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
     description: '最終戰！虛空之塔的心控王現身...',
-    bgImage: '/statics/backgrounds/Stage3/stage3.png'
+    bgImage: '/statics/backgrounds/Stage3/stage3.png',
+    bgmSrc: '/statics/bgm/stage3.mp3' // 【新增】第一關的 BGM 路徑
   }
 ];
 
-const OPENING_SCENES = [
-  '夜晚的城市被黑暗籠罩...',
-  '罪惡在街頭蔓延...',
-  '只有一位英雄能拯救這座城市...',
-  '你就是那位英雄！'
-];
+// const OPENING_SCENES = [
+//   '夜晚的城市被黑暗籠罩...',
+//   '罪惡在街頭蔓延...',
+//   '只有一位英雄能拯救這座城市...',
+//   '你就是那位英雄！'
+// ];
 
 // isFacingOpponent 判斷
 function isFacingOpponent(p1: Character, p2: Character) {
@@ -498,7 +501,7 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
         // 1) 試探：執行一個安全的「打完就跑」的動作
         if (choice < profile.probeChance) {
           // 我們將「向前走一步 -> 出一拳 -> 向後走一步」定義為一個特殊的連招
-          currentCombo = { sequence: ['walk_forward', 'punch', 'walk_backward'], step: 0 };
+          currentCombo = { sequence: ['walk_forward', 'punch', 'walk_backward'] as const, step: 0 };
           action = currentCombo.sequence[0]; // 執行這個特殊連招的第一步
           currentCombo.step = 1;
         } 
@@ -534,11 +537,18 @@ const FightingGame: React.FC = () => {
   const initialP2X = GAME_WIDTH - CHARACTER_WIDTH - 100; // AI在畫面右側
   const initialMidpoint = (initialP1X + initialP2X) / 2;
   const initialCameraX = 0; // 攝影機從舞台左側開始
+  // const initialCameraX = Math.min(
+  //   0,
+  //   Math.max(
+  //     initialMidpoint - (GAME_WIDTH / 2),
+  //     FIGHTING_STAGE_CONSTANTS.backgroundWidth - GAME_WIDTH
+  //   )
+  // );
 
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
     currentLevel: 1,
-    gamePhase: 'level-battle',
+    gamePhase: 'cover',
     isPaused: false,
     playerPhoto: null,
     lastResult: null
@@ -553,8 +563,7 @@ const FightingGame: React.FC = () => {
   const [player2CollisionData, setPlayer2CollisionData] = useState<CharacterCollisionData | null>(null);
   const [collisionDataLoading, setCollisionDataLoading] = useState(true);
   const [collisionDataError, setCollisionDataError] = useState<string | null>(null);
-
-  const [openingStep, setOpeningStep] = useState(0);
+  // const [openingStep, setOpeningStep] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [gameDimensions, setGameDimensions] = useState(FIGHTING_STAGE_CONSTANTS); // 動態遊戲尺寸
@@ -624,6 +633,11 @@ const FightingGame: React.FC = () => {
 
   // 1. 新增 winStreak 狀態（用於動態難度曲線）
   const [winStreak, setWinStreak] = useState(0); // 玩家連勝次數
+  const [isStoryVideoPlaying, setIsStoryVideoPlaying] = useState(false); // 控制是否顯示影片
+  const [isVideoEnded, setIsVideoEnded] = useState(false); // 追蹤影片是否已播放完畢
+  const [isPhotoReady, setIsPhotoReady] = useState(false); // 追蹤照片是否已成功取回
+  const [uploadError, setUploadError] = useState<string | null>(null); // 儲存上傳錯誤訊息
+  const storyVideoRef = useRef<HTMLVideoElement | null>(null); // 用於控制影片播放
 
   useEffect(() => {
     player1Ref.current = player1;
@@ -640,6 +654,58 @@ const FightingGame: React.FC = () => {
   useEffect(() => {
     p2FrameRef.current = player2CurrentFrame;
   }, [player2CurrentFrame]);
+
+  useEffect(() => {
+    if (isVideoEnded && isPhotoReady) {
+      setGameState(prev => ({
+        ...prev,
+        gamePhase: 'level-battle',
+        currentLevel: 1,
+        timeLeft: 60,
+        isPaused: false
+      }));
+      resetPlayersForNewBattle();
+    }
+  }, [isVideoEnded, isPhotoReady]);
+  
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+  
+    // 檢查是否處於需要播放音樂的階段
+    if (gameState.gamePhase === 'level-battle' && !gameState.isPaused) {
+      const currentBgm = LEVELS[gameState.currentLevel - 1]?.bgmSrc;
+  
+      // 如果 BGM 來源不正確，就更新來源並重新載入
+      // `.endsWith()` 確保即使有 URL 參數也能正確比對
+      if (currentBgm && !audioEl.src.endsWith(currentBgm)) {
+        audioEl.src = currentBgm;
+        audioEl.load();
+      }
+  
+      // 播放音樂 (並處理瀏覽器可能的回絕錯誤)
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error("BGM 播放失敗:", error);
+        });
+      }
+  
+    } else {
+      // 如果不在戰鬥中或已暫停，則暫停音樂
+      audioEl.pause();
+    }
+    
+  }, [gameState.currentLevel, gameState.gamePhase, gameState.isPaused]); // 監聽這些狀態的變化
+
+  useEffect(() => {
+    if (isStoryVideoPlaying && storyVideoRef.current) {
+      storyVideoRef.current.play().catch(error => {
+        console.error("影片自動播放失敗:", error);
+        // 這裡可以加入一個播放按鈕，讓用戶手動播放
+      });
+    }
+  }, [isStoryVideoPlaying]);
 
   // 【新增/替換】處理遊戲畫布縮放的 useEffect
   useEffect(() => {
@@ -665,21 +731,21 @@ const FightingGame: React.FC = () => {
   }, []); // 空依賴陣列，表示只在組件掛載和卸載時執行
 
   // Opening animation effect
-  useEffect(() => {
-    if (gameState.gamePhase === 'opening-animation') {
-      const interval = setInterval(() => {
-        setOpeningStep(prev => {
-          if (prev < OPENING_SCENES.length - 1) {
-            return prev + 1;
-          } else {
-            setGameState(current => ({ ...current, gamePhase: 'character-setup' }));
-            return prev;
-          }
-        });
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [gameState.gamePhase]);
+  // useEffect(() => {
+  //   if (gameState.gamePhase === 'opening-animation') {
+  //     const interval = setInterval(() => {
+  //       setOpeningStep(prev => {
+  //         if (prev < OPENING_SCENES.length - 1) {
+  //           return prev + 1;
+  //         } else {
+  //           setGameState(current => ({ ...current, gamePhase: 'character-setup' }));
+  //           return prev;
+  //         }
+  //       });
+  //     }, 3000);
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [gameState.gamePhase]);
 
   // Game timer
   useEffect(() => {
@@ -709,16 +775,16 @@ const FightingGame: React.FC = () => {
   // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameState.gamePhase === 'cover') {
-        startOpeningAnimation();
-      }
+      // 【修正】點擊後應該直接進入「角色設定」階段
+      setGameState(prev => ({ ...prev, gamePhase: 'character-setup' }));
     };
-
     if (gameState.gamePhase === 'cover') {
       window.addEventListener('keydown', handleKeyPress);
-      return () => window.removeEventListener('keydown', handleKeyPress);
+      return () => {
+        window.removeEventListener('keydown', handleKeyPress);
+      };
     }
-  }, [gameState.gamePhase]);
+  }, [gameState.gamePhase, setGameState]); // 加上 setGameState 以符合 React Hook 依賴性規則
 
   
   const handleP1AnimationComplete = () => {
@@ -1449,9 +1515,9 @@ function calculateCombatResult(
     }));
   };
 
-  const startOpeningAnimation = () => {
-    setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
-  };
+  // const startOpeningAnimation = () => {
+  //   setGameState(prev => ({ ...prev, gamePhase: 'opening-animation' }));
+  // };
 
   const [uploadLoading, setUploadLoading] = useState(false);
 
@@ -1459,40 +1525,54 @@ function calculateCombatResult(
     const file = event.target.files?.[0];
     if (file) {
       setUploadLoading(true);
+      setUploadError(null);     // 開始上傳前，清空舊的錯誤訊息
+      setIsPhotoReady(false);   // 重置照片就緒狀態
+      setIsVideoEnded(false);   // 重置影片播放狀態
+      setIsStoryVideoPlaying(true); // 開始上傳後，立刻切換到影片播放
+
       const formData = new FormData();
-      formData.append('picture', file); // key 為 picture
-      try {
-        const response = await fetch('https://vibe-coding-upload-user-picture-18729033947.asia-east1.run.app', {
-          method: 'POST',
-          body: formData
-        });
-        if (response.status === 202) {
-          const data = await response.json();
-          if (data.task_id) {
-            // 先將本地圖片 URL 存入 playerPhoto
-            const localUrl = URL.createObjectURL(file);
-            setGameState(prev => ({ ...prev, playerPhoto: localUrl, taskId: data.task_id }));
-            console.log('照片上傳成功，task_id: ' + data.task_id);
-            // 呼叫 fetchUploadedPhoto 取得正式照片，成功才進入遊戲
-            fetchUploadedPhoto(data.task_id);
+    formData.append('picture', file);
+    try {
+      const response = await fetch('https://vibe-coding-upload-user-picture-18729033947.asia-east1.run.app', { method: 'POST', body: formData });
+      if (response.status === 202) {
+        const data = await response.json();
+        if (data.task_id) {
+          setGameState(prev => ({ ...prev, taskId: data.task_id }));
+          fetchUploadedPhoto(data.task_id); // 開始在背景輪詢
           }
-        } else if (response.ok) {
-          const data = await response.json();
-          setGameState(prev => ({ ...prev, playerPhoto: data.url }));
-          // 若直接拿到 url 也呼叫 fetchUploadedPhoto 以確保流程一致
-          if (data.task_id) fetchUploadedPhoto(data.task_id);
         } else {
-          throw new Error('上傳失敗');
+          // 處理伺服器直接回傳的錯誤
+          throw new Error('上傳失敗，伺服器無回應');
         }
-      } catch (e) {
-        alert('照片上傳失敗，請重試');
+      } catch (e: any) {
+        setUploadError(e.message || '發生未知錯誤，請檢查網路連線');
         setUploadLoading(false);
+        setIsStoryVideoPlaying(false); // 上傳失敗，退回上傳介面
       }
     }
   };
+      // 先將本地圖片 URL 存入 playerPhoto
+      //       const localUrl = URL.createObjectURL(file);
+      //       setGameState(prev => ({ ...prev, playerPhoto: localUrl, taskId: data.task_id }));
+      //       console.log('照片上傳成功，task_id: ' + data.task_id);
+      //       // 呼叫 fetchUploadedPhoto 取得正式照片，成功才進入遊戲
+      //       fetchUploadedPhoto(data.task_id);
+      //     }
+      //   } else if (response.ok) {
+      //     const data = await response.json();
+      //     setGameState(prev => ({ ...prev, playerPhoto: data.url }));
+      //     // 若直接拿到 url 也呼叫 fetchUploadedPhoto 以確保流程一致
+      //     if (data.task_id) fetchUploadedPhoto(data.task_id);
+      //   } else {
+      //     throw new Error('上傳失敗');
+      //   }
+      // } catch (e) {
+      //   alert('照片上傳失敗，請重試');
+      //   setUploadLoading(false);
 
   // 取得上傳後的照片網址，成功才進入遊戲畫面，404 時自動重試
   const fetchUploadedPhoto = async (taskId: string) => {
+  try {
     console.log('fetchUploadedPhoto', taskId);
     const response = await fetch(`https://vibe-coding-get-user-picture-18729033947.asia-east1.run.app?task_id=${encodeURIComponent(taskId)}`);
     if (response.status === 404) {
@@ -1503,10 +1583,19 @@ function calculateCombatResult(
     }
     if (response.status === 200) {
       console.log('取得圖片成功');
-      setGameState(prev => ({ ...prev, playerPhoto: `https://storage.googleapis.com/vibe_coding_bucket/results/${taskId}/1.png`}));
+      const finalUrl = `https://storage.googleapis.com/vibe_coding_bucket/results/${taskId}/1.png`;
+      setGameState(prev => ({ ...prev, playerPhoto: finalUrl }));
       setUploadLoading(false);
+      setIsPhotoReady(true);
+    } else {
+      throw new Error('伺服器處理圖片失敗');
     }
-  };
+  } catch(e: any) {
+      setUploadError(e.message || '無法獲取處理後的圖片');
+      setUploadLoading(false);
+      setIsStoryVideoPlaying(false); // 獲取失敗，也退回上傳介面
+  }
+};
 
   const startFirstLevel = () => {
     setGameState(prev => ({ 
@@ -1547,136 +1636,215 @@ function calculateCombatResult(
     }));
   };
 
-  // 角色圖片 import
   // 1. Cover Screen
   if (gameState.gamePhase === 'cover') {
     return (
-      <div 
-        className="min-h-screen relative flex items-center justify-center cursor-pointer animate-pulse"
-        style={{ 
-          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 30%, #16213e 70%, #0f0f23 100%)',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='30'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-        }}
-        onClick={startOpeningAnimation}
-      >
-        {/* City skyline silhouette */}
-        <div className="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-black via-gray-900 to-transparent opacity-90">
-          <div className="absolute bottom-0 w-full h-32 bg-black opacity-60"></div>
-        </div>
-        
-        {/* Hero silhouette */}
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2">
-          <div className="w-32 h-40 bg-gradient-to-b from-gray-800 to-black rounded-t-full opacity-80 relative">
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-gray-700 rounded-full"></div>
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-20 bg-red-900 opacity-70 rounded-b-lg"></div>
-          </div>
+      // 最外層容器， overflow-hidden 是為了隱藏超出範圍的元素
+      <div className="fixed inset-0 overflow-hidden">
+      {/* 底層：滿版背景 + 毛玻璃 */}
+      <div
+        className="
+        absolute inset-0 
+        bg-cover bg-center 
+        transform scale-105        /* 放大 5% 避免邊緣透出 */
+        filter blur-lg              /* 改成 blur-lg（中等強度） */
+      "
+      style={{
+        backgroundImage: `url('/statics/cover/cover-image.png')`
+      }}
+      />
+
+      {/* 上層：完整不裁切 */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <img
+          src="/statics/cover/cover-image.png"
+          alt="Cover"
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
+        {/* 底層：背景圖 + Ken Burns 效果 */}
+        <div
+          className="absolute inset-0 bg-contain bg-center bg-no-repeat animate-ken-burns" // 【修改後】
+          style={{ backgroundImage: `url('/statics/cover/cover-image.png')` }} // <-- 請換成您的啟動頁圖片路徑
+        />
+
+        {/* 中層：掃光特效 */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+          <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+               style={{ animationDelay: '2s' }} // 延遲 2 秒開始
+          />
         </div>
 
-        <div className="text-center z-10">
-          <h1 className="text-7xl font-bold mb-8 bg-gradient-to-r from-red-500 via-yellow-500 to-orange-500 bg-clip-text text-transparent animate-pulse">
-            SHADOW STRIKE DUEL
-          </h1>
-          <p className="text-3xl text-white mb-12 animate-bounce">點擊任意鍵開始</p>
-          <div className="text-lg text-gray-300">城市需要英雄...</div>
-        </div>
-
-        {/* Floating particles */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* 頂層：漂浮粒子特效 */}
+        <div className="absolute inset-0 pointer-events-none">
           {[...Array(20)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-1 h-1 bg-yellow-400 rounded-full animate-ping"
+              className="absolute w-1 h-1 bg-orange-400 rounded-full animate-float-up"
               style={{
                 left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${2 + Math.random() * 2}s`
+                bottom: `-${Math.random() * 20}%`, // 從螢幕外開始
+                animationDelay: `${Math.random() * 10}s`,
+                animationDuration: `${5 + Math.random() * 10}s`,
+                opacity: 0,
               }}
             />
           ))}
+        </div>
+
+        {/* UI 層：標題與提示文字 */}
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <p 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl text-white animate-pulse drop-shadow-md"
+          >
+            按任意鍵開始
+          </p>
         </div>
       </div>
     );
   }
 
   // 2. Opening Animation
-  if (gameState.gamePhase === 'opening-animation') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden">
-        <div className="text-center z-10">
-          <div className="text-4xl text-white mb-8 animate-fade-in">
-            {OPENING_SCENES[openingStep]}
-          </div>
-          <div className="w-64 h-2 bg-gray-700 rounded-full mx-auto">
-            <div 
-              className="h-full bg-gradient-to-r from-red-500 to-yellow-500 rounded-full transition-all duration-300"
-              style={{ width: `${((openingStep + 1) / OPENING_SCENES.length) * 100}%` }}
-            />
-          </div>
-        </div>
+  // if (gameState.gamePhase === 'opening-animation') {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden">
+  //       <div className="text-center z-10">
+  //         <div className="text-4xl text-white mb-8 animate-fade-in">
+  //           {OPENING_SCENES[openingStep]}
+  //         </div>
+  //         <div className="w-64 h-2 bg-gray-700 rounded-full mx-auto">
+  //           <div 
+  //             className="h-full bg-gradient-to-r from-red-500 to-yellow-500 rounded-full transition-all duration-300"
+  //             style={{ width: `${((openingStep + 1) / OPENING_SCENES.length) * 100}%` }}
+  //           />
+  //         </div>
+  //       </div>
         
-        {/* Cinematic bars */}
-        <div className="absolute top-0 left-0 right-0 h-16 bg-black z-20"></div>
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-black z-20"></div>
-      </div>
-    );
-  }
+  //       {/* Cinematic bars */}
+  //       <div className="absolute top-0 left-0 right-0 h-16 bg-black z-20"></div>
+  //       <div className="absolute bottom-0 left-0 right-0 h-16 bg-black z-20"></div>
+  //     </div>
+  //   );
+  // }
 
   // 3. Character Setup
   if (gameState.gamePhase === 'character-setup') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-        <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
-          <h2 className="text-4xl font-bold mb-6 text-center text-white">角色設定</h2>
-          
-          <div className="text-center mb-6">
-            <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 border-4 border-blue-500 relative overflow-hidden">
-              {gameState.playerPhoto ? (
-                <img src={gameState.playerPhoto} alt="Player" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <Upload size={40} />
-                </div>
-              )}
-            </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white">
+        {isStoryVideoPlaying ? (
+          // --- 狀態二：正在播放影片 ---
+          <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
+          <video
+            ref={storyVideoRef}
+            className="absolute inset-0 w-full h-full object-contain"
+            onEnded={() => {
+              storyVideoRef.current?.pause();
+              setIsVideoEnded(true);
+              if (isPhotoReady) {
+                setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+              }
+            }}
+          >
+            <source src="/statics/videos/story.mp4" type="video/mp4" />
+          </video>
+             {/* 置頂提示文字 */}
+             <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
+            {uploadLoading 
+              ? "英雄正在生成… (圖片處理中)" 
+              : !isPhotoReady 
+              ? "英雄即將生成，準備進入戰場" 
+              : "英雄已生成，準備進入戰鬥…"}
+          </p>
+          </div> 
+        ) : (
+          // --- 狀態一：上傳介面 / 等待介面 / 錯誤介面 ---
+          <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
+            <h2 className="text-4xl font-bold mb-6 text-center">角色設定</h2>
             
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
-            
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              className="mb-4 bg-blue-600 hover:bg-blue-700"
-              disabled={uploadLoading}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {uploadLoading ? "上傳照片中" : "上傳大頭照"}
-            </Button>
-            
-            <p className="text-sm text-gray-300 mb-6">
-              上傳你的照片，成為城市的英雄！
-            </p>
-          </div>
+            {uploadError ? (
+              <div className='text-center'>
+                <p className='text-red-400 mb-4'>上傳失敗：{uploadError}</p>
+                <Button onClick={() => setUploadError(null)} variant="destructive">
+                  再試一次
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center mb-6">
+                {/* ... (您原有的上傳按鈕和圖示) ... */}
+                <input ref={fileInputRef} type="file" /*...*/ onChange={handlePhotoUpload} className="hidden" />
+                <Button onClick={() => fileInputRef.current?.click()} /*...*/ >
+                  {uploadLoading ? "處理中..." : "上傳大頭照"}
+                </Button>
+              </div>
+            )}
 
-          {gameState.playerPhoto && (
-            <div className="text-center">
-              <Button
-                onClick={startFirstLevel}
-                className="text-xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
-                disabled={uploadLoading}
-              >
-              {uploadLoading ? "上傳照片中" : "開始冒險"}
-              </Button>
-            </div>
-          )}
-        </Card>
+            {/* 如果影片已播完，但照片還在處理，顯示等待按鈕 */}
+            {!uploadLoading && !isPhotoReady && gameState.taskId && (
+              <div className="text-center mt-6">
+                 <Button disabled className="animate-pulse">
+                    等待照片處理完成...
+                 </Button>
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     );
   }
+  // if (gameState.gamePhase === 'character-setup') {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+  //       <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
+  //         <h2 className="text-4xl font-bold mb-6 text-center text-white">角色設定</h2>
+          
+  //         <div className="text-center mb-6">
+  //           <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 border-4 border-blue-500 relative overflow-hidden">
+  //             {gameState.playerPhoto ? (
+  //               <img src={gameState.playerPhoto} alt="Player" className="w-full h-full object-cover" />
+  //             ) : (
+  //               <div className="w-full h-full flex items-center justify-center text-gray-400">
+  //                 <Upload size={40} />
+  //               </div>
+  //             )}
+  //           </div>
+            
+  //           <input
+  //             ref={fileInputRef}
+  //             type="file"
+  //             accept="image/*"
+  //             onChange={handlePhotoUpload}
+  //             className="hidden"
+  //           />
+            
+  //           <Button
+  //             onClick={() => fileInputRef.current?.click()}
+  //             className="mb-4 bg-blue-600 hover:bg-blue-700"
+  //             disabled={uploadLoading}
+  //           >
+  //             <Upload className="mr-2 h-4 w-4" />
+  //             {uploadLoading ? "上傳照片中" : "上傳大頭照"}
+  //           </Button>
+            
+  //           <p className="text-sm text-gray-300 mb-6">
+  //             上傳你的照片，成為城市的英雄！
+  //           </p>
+  //         </div>
+
+  //         {gameState.playerPhoto && (
+  //           <div className="text-center">
+  //             <Button
+  //               onClick={startFirstLevel}
+  //               className="text-xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+  //               disabled={uploadLoading}
+  //             >
+  //             {uploadLoading ? "上傳照片中" : "開始冒險"}
+  //             </Button>
+  //           </div>
+  //         )}
+  //       </Card>
+  //     </div>
+  //   );
+  // }
 
   // 6. Ending Animation
   if (gameState.gamePhase === 'ending-animation') {
@@ -1781,24 +1949,139 @@ function calculateCombatResult(
 
   return (
    // 1. 最外層的黑色背景容器 (置中用)
-   <div className="w-screen h-screen bg-black relative overflow-hidden">
-  {/* 2. 內層的遊戲畫布 (縮放用) */}
+   <div className="w-screen h-screen bg-black relative overflow-hidden flex items-center justify-center">
+    {/* 【新增這段 Audio 元素】它沒有畫面，放在哪裡都可以 */}
+    <audio ref={audioRef} loop />
+    {/* 2. 內層的遊戲畫布 (縮放用) */}
     <div 
     className="relative overflow-hidden"
-      style={{ 
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      width: `${GAME_WIDTH}px`,
-      height: `${GAME_HEIGHT}px`,
-      // 這行 transform 會先將畫布的中心點移到父層的中心點(50%, 50%)，然後再進行縮放
-      transform: `translate(-50%, -50%) scale(${gameScale})`,
-      transformOrigin: 'center center',
-      background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4s13 50%, #1a1a1a 100%)',
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: `${GAME_WIDTH}px`,
+        height: `${GAME_HEIGHT}px`,
+        transform: `translate(-50%, -50%) scale(${gameScale})`,
+        transformOrigin: 'center center',
+        background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)', // 【修正】CSS 拼寫錯誤
       }}
     >
+      {/* 3. 格鬥遊戲舞台 */}
+      <div 
+        className="absolute" // 不再需要 inset-0 和 overflow-hidden
+        style={{
+          width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`, 
+          height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+          left: `-${cameraX}px`,
+          top: 0,
+        }}
+      >
+      {/* 4. 舞台背景 */}
+      <div 
+          className="absolute"
+          style={{
+            backgroundImage: `url(${currentLevelData.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center bottom',
+            backgroundRepeat: 'no-repeat',
+            width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
+            height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+            left: 0,
+            top: `${Math.max(0, GAME_HEIGHT - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
+          }}
+        />
+      {/* 5. 角色容器 */}
+      <div className="absolute inset-0">
+        {/* Player 1 */}
+      <div 
+        className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
+          style={{ 
+            left: player1.position.x, 
+            bottom: `${player1.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none'
+          }}
+        >
+          <AnimationPlayer
+            source={getAnimationSource(player1.state)}
+            facing={player1.facing}
+            state={player1.state}
+            setPlayer={setPlayer1}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={true}
+            onFrameChange={setPlayer1CurrentFrame}
+            onComplete={handleP1AnimationComplete}
+          />
+      </div>
+      {/* Player 2 (AI) */}
+      <div 
+        className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
+          style={{ 
+            left: player2.position.x, 
+            bottom: `${player2.position.y}px`,
+            width: CHARACTER_WIDTH,
+            height: CHARACTER_HEIGHT,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none'
+          }}
+        >
+          <AnimationPlayer
+            source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
+            facing={player2.facing}
+            state={player2.state}
+            width={CHARACTER_WIDTH}
+            height={CHARACTER_HEIGHT}
+            isPlayer1={false}
+            onFrameChange={setPlayer2CurrentFrame}
+            setPlayer={setPlayer2}
+            onComplete={handleP2AnimationComplete}
+          />
+        </div>
+      {/* Debug hit/hurt boxes */}
+        {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
+        {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
+        {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
+        {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
+
+      {/* Effects */}
+      {effects.map(effect => (
+          <div
+            key={effect.id}
+            className="absolute pointer-events-none"
+            style={{ 
+              left: effect.x, 
+              bottom: `${effect.y}px`
+            }}
+          >
+            {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
+            {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
+            {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
+            {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
+            {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+            {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+            {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
+          </div>
+        ))}
+        </div>
+      </div>
       {/* Level Battle UI */}
       <div className="absolute top-0 left-0 right-0 z-10 p-4">
+        {/* 玩家頭像 */}
+        {/* <div className="absolute top-4 left-4 w-12 h-12 rounded-full border-2 border-white overflow-hidden z-20">
+          {gameState.playerPhoto ? (
+            <img src={gameState.playerPhoto} alt="Hero Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white text-lg">😊</div>
+          )}
+        </div> */}
+        
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-4">
             <Button
@@ -1872,19 +2155,7 @@ function calculateCombatResult(
         </div>
       </div>
 
-      {/* 格鬥遊戲舞台 */}
-      <div 
-        className="absolute" // 不再需要 inset-0 和 overflow-hidden
-        style={{
-          // 【修改後#1】舞台的寬度應該是您設定的 2400px
-          width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`, 
-          height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
-          // 【修改後#2】使用 left 屬性來移動舞台，模擬攝影機平移
-          // cameraX 的值由 rAF 主循環計算
-          left: `-${cameraX}px`,
-          top: 0,
-        }}
-      > {/* Controls */}
+         {/* Controls */}
       <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
         <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
           <span>A：向左</span>
@@ -1923,101 +2194,6 @@ function calculateCombatResult(
           </div>
         </div>
       )}
-        {/* 舞台背景 */}
-        <div 
-          className="absolute"
-          style={{
-            backgroundImage: `url(${currentLevelData.bgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
-            width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
-            height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
-            left: 0,
-            top: `${Math.max(0, GAME_HEIGHT - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
-          }}
-        />
-
-        {/* 角色容器 */}
-        <div className="absolute inset-0">
-        {/* Player 1 */}
-        <div 
-          className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player1.position.x, 
-            bottom: `${player1.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none'
-          }}
-        >
-          <AnimationPlayer
-            source={getAnimationSource(player1.state)}
-            facing={player1.facing}
-            state={player1.state}
-            setPlayer={setPlayer1}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={true}
-            onFrameChange={setPlayer1CurrentFrame}
-            onComplete={handleP1AnimationComplete}
-          />
-        </div>
-        {/* Player 2 (AI) */}
-        <div 
-          className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player2.position.x, 
-            bottom: `${player2.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none'
-          }}
-        >
-          <AnimationPlayer
-            source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
-            facing={player2.facing}
-            state={player2.state}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={false}
-            onFrameChange={setPlayer2CurrentFrame}
-            setPlayer={setPlayer2}
-            onComplete={handleP2AnimationComplete}
-          />
-        </div>
-        {/* Debug hit/hurt boxes */}
-        {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
-        {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
-        {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
-        {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
-        {/* Effects */}
-        {effects.map(effect => (
-          <div
-            key={effect.id}
-            className="absolute pointer-events-none"
-            style={{ 
-              left: effect.x, 
-              bottom: `${effect.y}px`
-            }}
-          >
-            {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
-            {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
-            {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
-            {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
-            {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-            {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-            {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
-          </div>
-        ))}
-        </div>
-      </div>
     </div>
   </div>
 );
