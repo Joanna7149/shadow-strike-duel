@@ -338,26 +338,26 @@ function getDynamicAIProfile(level: number, winStreak: number) {
   const baseProfiles = [
     {
       attackRange: 180,
-      aggression: 0.8,
+      aggression: 0.6,
       defenseChance: 0.2,
-      probeChance: 0.4, // 【新增】第一關有 40% 機率試探
-      zoning: 0.2,
-      spacing: 0.2,
+      probeChance: 0.3, // 【新增】第一關有 30% 機率試探
+      zoning: 0.3,
+      spacing: 0.3,
       thinkingInterval: { min: 45, max: 75 },
       combos: [
         { sequence: ['punch', 'punch'] as readonly Move[], chance: 0.7 },
         { sequence: ['kick', 'kick'] as readonly Move[], chance: 0.5 },
         { sequence: ['punch', 'kick'] as readonly Move[], chance: 0.4 },
       ],
-      prediction: 0.1,
+      prediction: 0.3,
     },
     {
       attackRange: 220,
       aggression: 0.9,
-      defenseChance: 0.4,
-      probeChance: 0.3, // 【新增】第二關試探機率降低，更傾向猛攻
-      zoning: 0.4,
-      spacing: 0.4,
+      defenseChance: 0.7,
+      probeChance: 0.2, // 【新增】第二關試探機率降低，更傾向猛攻
+      zoning: 0.5,
+      spacing: 0.5,
       thinkingInterval: { min: 35, max: 60 },
       combos: [
         { sequence: ['punch', 'kick'] as readonly Move[], chance: 0.7 },
@@ -365,11 +365,11 @@ function getDynamicAIProfile(level: number, winStreak: number) {
         { sequence: ['jump_kick', 'punch'] as readonly Move[], chance: 0.4 },
         { sequence: ['crouch_punch', 'kick'] as readonly Move[], chance: 0.3 },
       ],
-      prediction: 0.2,
+      prediction: 0.5,
     },
     {
       attackRange: 200,
-      aggression: 1.0,
+      aggression: 0.8,
       defenseChance: 0.6,
       probeChance: 0.2, // 【新增】第三關試探機率最低，因為極具攻擊性
       zoning: 0.6,
@@ -381,7 +381,7 @@ function getDynamicAIProfile(level: number, winStreak: number) {
         { sequence: ['jump_punch', 'kick', 'special_attack'] as readonly Move[], chance: 0.5 },
         { sequence: ['crouch_kick', 'punch', 'kick'] as readonly Move[], chance: 0.4 },
       ],
-      prediction: 0.3,
+      prediction: 0.7,
     },
   ];
   // 動態難度加成（根據連勝數）
@@ -424,6 +424,17 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
       nextTimer: Math.floor(10 + Math.random() * 10),
       nextCombo: null
     };
+  }
+// --- 0.1 Anti-Air ---
+// 當玩家在空中，並且距離在可打範圍，直接跳擊懲罰
+ if ((player.state === 'jump' || player.state.startsWith('jump_')) 
+     && distance < profile.attackRange + 20) {
+   return {
+     nextAiState: 'ENGAGING',
+     action: 'jump_punch',
+     nextTimer: Math.floor(profile.thinkingInterval.min / 2),
+     nextCombo: null
+   };
   }
 
   // --- 1. 最高優先級：連招執行 ---
@@ -496,17 +507,16 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
       break;
       case 'ENGAGING':
         // 【核心升級】在交戰模式中，引入「試探」、「進攻」、「觀察」三段式決策
-        const choice = Math.random();
-        
-        // 1) 試探：執行一個安全的「打完就跑」的動作
-        if (choice < profile.probeChance) {
+        const r = Math.random();
+        // 1) 試探：走→打→退
+        if (r < profile.probeChance) {
           // 我們將「向前走一步 -> 出一拳 -> 向後走一步」定義為一個特殊的連招
           currentCombo = { sequence: ['walk_forward', 'punch', 'walk_backward'] as const, step: 0 };
           action = currentCombo.sequence[0]; // 執行這個特殊連招的第一步
           currentCombo.step = 1;
         } 
-        // 2) 進攻：執行一個真正的、有風險的猛攻連招
-        else if (choice < profile.probeChance + profile.aggression) {
+        // 2) 進攻：真正的連招
+        else if (r < profile.probeChance + profile.aggression) {
           const comboToDo = profile.combos.find(c => Math.random() < c.chance);
           if (comboToDo) {
             // 檢查能量是否足夠 (如果連招包含必殺技)
@@ -517,13 +527,14 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
               action = currentCombo.sequence[0];
               currentCombo.step = 1;
             }
-          } else {
-            action = 'idle'; // 沒選中連招，改為觀察
-          }
-        } 
-        // 3) 觀察：待在原地，引誘對手
+          } 
+        // 3) 重新佈局：根據距離決定拉開或貼近
         else {
-          action = 'idle';
+          // 距離太近就後退，太遠就貼近
+          action = distance < profile.attackRange * 0.8
+          ? 'walk_backward'
+          : 'walk_forward';
+        }
         }
         break;
   }
@@ -2101,9 +2112,9 @@ function calculateCombatResult(
         <div className="flex justify-between items-center mb-2">
           {/* 玩家血條與頭像 */}
           <div className="w-1/3 flex items-center space-x-2">
-            <div className="w-14 h-14 rounded-full bg-gray-700 border-4 border-red-500 overflow-hidden flex-shrink-0">
+            <div className="w-28 h-28 flex-shrink-0">
               {gameState.playerPhoto ? (
-                <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-cover" />
+                <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
               )}
@@ -2147,8 +2158,18 @@ function calculateCombatResult(
                 />
               </div>
             </div>
-            <div className="w-14 h-14 rounded-full bg-gray-700 border-4 border-red-500 overflow-hidden flex-shrink-0 ml-2">
-              <div className="w-full h-full flex items-center justify-center text-white text-3xl">🤖</div>
+            <div className="w-28 h-28 flex-shrink-0 ml-2">
+              <img
+                src={
+                  gameState.currentLevel === 1
+                    ? '/statics/Avatars/Avatar_Enemy01.png'
+                    : gameState.currentLevel === 2
+                    ? '/statics/Avatars/Avatar_Enemy02.png'
+                    : '/statics/Avatars/Avatar_Enemy03.png'
+                }
+                alt="AI"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
         </div>
