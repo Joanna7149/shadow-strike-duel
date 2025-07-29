@@ -1521,55 +1521,57 @@ function calculateCombatResult(
 
   const [uploadLoading, setUploadLoading] = useState(false);
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    // 1. 清除舊的錯誤狀態
+    setUploadError(null);
+  
+    // 2. 立刻在畫面上顯示本地預覽
+    const localUrl = URL.createObjectURL(file);
+    setGameState(prev => ({ ...prev, playerPhoto: localUrl }));
+  
+    // 3. 延遲 1 秒後再正式啟動動畫與後台上傳
+    setTimeout(async () => {
+      // 啟動載入與故事動畫
       setUploadLoading(true);
-      setUploadError(null);     // 開始上傳前，清空舊的錯誤訊息
-      setIsPhotoReady(false);   // 重置照片就緒狀態
-      setIsVideoEnded(false);   // 重置影片播放狀態
-      setIsStoryVideoPlaying(true); // 開始上傳後，立刻切換到影片播放
-
-      const formData = new FormData();
-    formData.append('picture', file);
-    try {
-      const response = await fetch('https://vibe-coding-upload-user-picture-18729033947.asia-east1.run.app', { method: 'POST', body: formData });
-      if (response.status === 202) {
-        const data = await response.json();
-        if (data.task_id) {
-          setGameState(prev => ({ ...prev, taskId: data.task_id }));
-          fetchUploadedPhoto(data.task_id); // 開始在背景輪詢
+      setIsStoryVideoPlaying(true);
+      setIsVideoEnded(false);
+      setIsPhotoReady(false);
+  
+      try {
+        const formData = new FormData();
+        formData.append('picture', file);
+  
+        // 請替換成你的上傳端點
+        const response = await fetch('https://vibe-coding-upload-user-picture-18729033947.asia-east1.run.app', {
+          method: 'POST',
+          body: formData,
+        });
+  
+        if (response.status === 202) {
+          const data = await response.json();
+          if (data.task_id) {
+            // 儲存 task_id 並開始輪詢取正式照片
+            setGameState(prev => ({ ...prev, taskId: data.task_id }));
+            fetchUploadedPhoto(data.task_id);
+          } else {
+            throw new Error('伺服器沒有回傳 task_id');
           }
         } else {
-          // 處理伺服器直接回傳的錯誤
-          throw new Error('上傳失敗，伺服器無回應');
+          throw new Error('上傳失敗');
         }
-      } catch (e: any) {
-        setUploadError(e.message || '發生未知錯誤，請檢查網路連線');
+      } catch (err: any) {
+        // 上傳錯誤處理
+        setUploadError(err.message || '未知錯誤');
         setUploadLoading(false);
-        setIsStoryVideoPlaying(false); // 上傳失敗，退回上傳介面
+        setIsStoryVideoPlaying(false);
+        // 清除本地預覽
+        setGameState(prev => ({ ...prev, playerPhoto: null }));
       }
-    }
+    }, 1000);
   };
-      // 先將本地圖片 URL 存入 playerPhoto
-      //       const localUrl = URL.createObjectURL(file);
-      //       setGameState(prev => ({ ...prev, playerPhoto: localUrl, taskId: data.task_id }));
-      //       console.log('照片上傳成功，task_id: ' + data.task_id);
-      //       // 呼叫 fetchUploadedPhoto 取得正式照片，成功才進入遊戲
-      //       fetchUploadedPhoto(data.task_id);
-      //     }
-      //   } else if (response.ok) {
-      //     const data = await response.json();
-      //     setGameState(prev => ({ ...prev, playerPhoto: data.url }));
-      //     // 若直接拿到 url 也呼叫 fetchUploadedPhoto 以確保流程一致
-      //     if (data.task_id) fetchUploadedPhoto(data.task_id);
-      //   } else {
-      //     throw new Error('上傳失敗');
-      //   }
-      // } catch (e) {
-      //   alert('照片上傳失敗，請重試');
-      //   setUploadLoading(false);
-
   // 取得上傳後的照片網址，成功才進入遊戲畫面，404 時自動重試
   const fetchUploadedPhoto = async (taskId: string) => {
   try {
@@ -1650,14 +1652,14 @@ function calculateCombatResult(
         filter blur-lg              /* 改成 blur-lg（中等強度） */
       "
       style={{
-        backgroundImage: `url('/statics/cover/cover-image.png')`
+        backgroundImage: `url('/statics/cover/cover_image.png')`
       }}
       />
 
       {/* 上層：完整不裁切 */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <img
-          src="/statics/cover/cover-image.png"
+          src="/statics/cover/cover_image.png"
           alt="Cover"
           className="max-w-full max-h-full object-contain"
         />
@@ -1665,7 +1667,7 @@ function calculateCombatResult(
         {/* 底層：背景圖 + Ken Burns 效果 */}
         <div
           className="absolute inset-0 bg-contain bg-center bg-no-repeat animate-ken-burns" // 【修改後】
-          style={{ backgroundImage: `url('/statics/cover/cover-image.png')` }} // <-- 請換成您的啟動頁圖片路徑
+          style={{ backgroundImage: `url('/statics/cover/cover_image.png')` }} // <-- 請換成您的啟動頁圖片路徑
         />
 
         {/* 中層：掃光特效 */}
@@ -1730,121 +1732,118 @@ function calculateCombatResult(
   // 3. Character Setup
   if (gameState.gamePhase === 'character-setup') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white">
+      <div
+        className="fixed inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/statics/cover/character_setup.png')" }}
+      >
         {isStoryVideoPlaying ? (
           // --- 狀態二：正在播放影片 ---
           <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
-          <video
-            ref={storyVideoRef}
-            className="absolute inset-0 w-full h-full object-contain"
-            onEnded={() => {
-              storyVideoRef.current?.pause();
-              setIsVideoEnded(true);
-              if (isPhotoReady) {
-                setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+            <video
+              ref={storyVideoRef}
+              className="absolute inset-0 w-full h-full object-contain"
+              onEnded={() => {
+                storyVideoRef.current?.pause();
+                setIsVideoEnded(true);
+                if (isPhotoReady) {
+                  setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+                }
+              }}
+            >
+              <source src="/statics/videos/story.mp4" type="video/mp4" />
+              您的瀏覽器不支援影片播放。
+            </video>
+            {/* 置頂提示文字 */}
+            <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
+              {uploadLoading
+                ? "英雄正在生成… (圖片處理中)"
+                : !isPhotoReady
+                  ? "英雄即將生成，準備進入戰場"
+                  : "英雄已生成，準備進入戰鬥…"
               }
-            }}
-          >
-            <source src="/statics/videos/story.mp4" type="video/mp4" />
-          </video>
-             {/* 置頂提示文字 */}
-             <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
-            {uploadLoading 
-              ? "英雄正在生成… (圖片處理中)" 
-              : !isPhotoReady 
-              ? "英雄即將生成，準備進入戰場" 
-              : "英雄已生成，準備進入戰鬥…"}
-          </p>
-          </div> 
+            </p>
+          </div>
         ) : (
           // --- 狀態一：上傳介面 / 等待介面 / 錯誤介面 ---
-          <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
-            <h2 className="text-4xl font-bold mb-6 text-center">角色設定</h2>
-            
-            {uploadError ? (
-              <div className='text-center'>
-                <p className='text-red-400 mb-4'>上傳失敗：{uploadError}</p>
-                <Button onClick={() => setUploadError(null)} variant="destructive">
-                  再試一次
-                </Button>
+      
+          <div
+              // 使用絕對定位將選單框精準定位在畫面的右側區域
+            className="absolute top-1/2 left-3/4 -translate-x-1/2 -translate-y-1/2"
+            >
+              {/* 選單框 (使用背景圖實現，並作為內部元素的定位基準) */}
+              <div 
+                className="relative w-[500px] h-[700px] bg-contain bg-no-repeat bg-center"
+                style={{ backgroundImage: `url('/statics/cover/ui_frame.png')` }}
+              >
+  
+              <h2 className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold text-white drop-shadow-lg">
+                英雄登入
+              </h2>
+  
+              {/* 頭像預覽區 */}
+              <div 
+                // 【修改後】我們保留了絕對定位，但移除了所有裝飾性 class
+                className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 flex items-center justify-center overflow-hidden"
+              >
+                {gameState.playerPhoto ? (
+                  // 當有照片時，直接顯示圖片
+                  <img 
+                    src={gameState.playerPhoto} 
+                    alt="Avatar Preview" 
+                    className="w-full h-full object-cover" // object-cover 確保圖片填滿容器且不變形
+                  />
+                ) : (
+                  // 沒有照片時，顯示一個中性的上傳圖示
+                  <Upload size={48} className="text-gray-500" />
+                )}
               </div>
-            ) : (
-              <div className="text-center mb-6">
-                {/* ... (您原有的上傳按鈕和圖示) ... */}
-                <input ref={fileInputRef} type="file" /*...*/ onChange={handlePhotoUpload} className="hidden" />
-                <Button onClick={() => fileInputRef.current?.click()} /*...*/ >
-                  {uploadLoading ? "處理中..." : "上傳大頭照"}
-                </Button>
-              </div>
-            )}
-
-            {/* 如果影片已播完，但照片還在處理，顯示等待按鈕 */}
-            {!uploadLoading && !isPhotoReady && gameState.taskId && (
-              <div className="text-center mt-6">
-                 <Button disabled className="animate-pulse">
-                    等待照片處理完成...
-                 </Button>
-              </div>
-            )}
-          </Card>
-        )}
-      </div>
-    );
-  }
-  // if (gameState.gamePhase === 'character-setup') {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-  //       <Card className="p-8 bg-black/70 backdrop-blur border-blue-500 max-w-md w-full">
-  //         <h2 className="text-4xl font-bold mb-6 text-center text-white">角色設定</h2>
-          
-  //         <div className="text-center mb-6">
-  //           <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-gradient-to-b from-gray-600 to-gray-800 border-4 border-blue-500 relative overflow-hidden">
-  //             {gameState.playerPhoto ? (
-  //               <img src={gameState.playerPhoto} alt="Player" className="w-full h-full object-cover" />
-  //             ) : (
-  //               <div className="w-full h-full flex items-center justify-center text-gray-400">
-  //                 <Upload size={40} />
-  //               </div>
-  //             )}
-  //           </div>
-            
-  //           <input
-  //             ref={fileInputRef}
-  //             type="file"
-  //             accept="image/*"
-  //             onChange={handlePhotoUpload}
-  //             className="hidden"
-  //           />
-            
-  //           <Button
-  //             onClick={() => fileInputRef.current?.click()}
-  //             className="mb-4 bg-blue-600 hover:bg-blue-700"
-  //             disabled={uploadLoading}
-  //           >
-  //             <Upload className="mr-2 h-4 w-4" />
-  //             {uploadLoading ? "上傳照片中" : "上傳大頭照"}
-  //           </Button>
-            
-  //           <p className="text-sm text-gray-300 mb-6">
-  //             上傳你的照片，成為城市的英雄！
-  //           </p>
-  //         </div>
-
-  //         {gameState.playerPhoto && (
-  //           <div className="text-center">
-  //             <Button
-  //               onClick={startFirstLevel}
-  //               className="text-xl px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
-  //               disabled={uploadLoading}
-  //             >
-  //             {uploadLoading ? "上傳照片中" : "開始冒險"}
-  //             </Button>
-  //           </div>
-  //         )}
-  //       </Card>
-  //     </div>
-  //   );
-  // }
+            </div>
+  
+            {/* 隱藏的檔案輸入框 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+  
+            {/* 按鈕與提示文字的容器 (相對於選單框絕對定位) */}
+            <div
+                className="absolute top-[75%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-20 text-center"
+              >
+                {uploadError ? (
+                  <div>
+                    <p className='text-red-400 mb-4'>上傳失敗：{uploadError}</p>
+                    <Button onClick={() => {
+                      setUploadError(null);
+                      setGameState(prev => ({...prev, playerPhoto: null}));
+                    }} variant="destructive">
+                      再試一次
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={uploadLoading}
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white text-lg px-8 py-4 w-full shadow-lg"
+                  >
+                    {uploadLoading ? "處理中..." : "請上傳大頭照"}
+                  </Button>
+                )}
+                
+                {/* 如果影片已播完，但照片還在處理，顯示等待提示 */}
+                {isVideoEnded && !isPhotoReady && !uploadError && (
+                  <div className="mt-4">
+                    <p className="animate-pulse text-cyan-300">等待照片處理完成...</p>
+                </div>
+              )}
+            </div>
+        </div>
+    )}
+  </div>
+);
+}
 
   // 6. Ending Animation
   if (gameState.gamePhase === 'ending-animation') {
