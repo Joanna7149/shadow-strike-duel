@@ -234,7 +234,7 @@ interface Character {
 interface GameState {
   timeLeft: number;
   currentLevel: number;
-  gamePhase: 'cover' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'game-complete' | 'vs-screen';
+  gamePhase: 'cover' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'vs-screen';
   isPaused: boolean;
   playerPhoto: string | null;
   lastResult?: 'win' | 'lose' | null;
@@ -670,7 +670,7 @@ const FightingGame: React.FC = () => {
     if (isVideoEnded && isPhotoReady) {
       setGameState(prev => ({
         ...prev,
-        gamePhase: 'level-battle',
+        gamePhase: 'vs-screen',
         currentLevel: 1,
         timeLeft: 60,
         isPaused: false
@@ -717,6 +717,20 @@ const FightingGame: React.FC = () => {
       });
     }
   }, [isStoryVideoPlaying]);
+
+  useEffect(() => {
+   if (gameState.gamePhase === 'vs-screen') {
+    const timer = setTimeout(() => {
+      setGameState(prev => ({ 
+        ...prev, 
+        gamePhase: 'level-battle', 
+        isPaused: false 
+      }));
+      resetPlayersForNewBattle();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }
+}, [gameState.gamePhase]);
 
   // 【新增/替換】處理遊戲畫布縮放的 useEffect
   useEffect(() => {
@@ -1486,7 +1500,7 @@ function calculateCombatResult(
           ...prev,
           currentLevel: prev.currentLevel + 1,
           timeLeft: 60,
-          gamePhase: 'level-battle',
+          gamePhase: 'vs-screen',
           lastResult: 'win',
           isPaused: false
         }));
@@ -1613,7 +1627,7 @@ function calculateCombatResult(
   const startFirstLevel = () => {
     setGameState(prev => ({ 
       ...prev, 
-      gamePhase: 'level-battle',
+      gamePhase: 'vs-screen',
       currentLevel: 1,
       timeLeft: 60,
       isPaused: false
@@ -1856,80 +1870,87 @@ function calculateCombatResult(
 );
 }
 
+// 4. VS Screen
+if (gameState.gamePhase === 'vs-screen') {
+  return (
+    <div
+      className="fixed inset-0 bg-center bg-contain"
+      style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}
+    >
+      {/* 掃光特效 */}
+      <div className="absolute inset-0 overflow-hidden">
+       <div className="absolute w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+      </div>
+    </div>
+  );
+  }
   // 6. Ending Animation
   if (gameState.gamePhase === 'ending-animation') {
+    // 根據 taskId 組合勝利圖片的 URL
+    const victoryImageUrl = gameState.taskId 
+        ? `https://storage.googleapis.com/vibe_coding_bucket/results/${gameState.taskId}/2.png`
+        : '/statics/cover/cover_image.png'; // 提供一個備用圖片
+
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-200 via-orange-300 to-red-400 relative overflow-hidden">
-        <div className="text-center z-10 animate-fade-in">
-          <h1 className="text-6xl font-bold mb-8 text-white drop-shadow-lg">
-            {gameState.lastResult === 'win' ? '城市拯救成功！' : '遊戲結束'}
-          </h1>
-          <div className="w-48 h-48 mx-auto mb-6 rounded-full bg-gradient-to-b from-yellow-400 to-orange-500 border-8 border-white relative overflow-hidden animate-scale-in">
-            {gameState.playerPhoto ? (
-              <img src={gameState.playerPhoto} alt="Hero" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-6xl">😊</div>
-            )}
-          </div>
-          <p className="text-2xl text-white mb-8 drop-shadow">
-            {gameState.lastResult === 'win' ? '光明重新照耀這座城市' : '雖然失敗了，但你的勇氣值得敬佩。'}
-          </p>
-          
-          <Button
-            onClick={() => setGameState(prev => ({ ...prev, gamePhase: 'game-complete' }))}
-            className="text-xl px-8 py-4 bg-white text-orange-600 hover:bg-gray-100"
-          >
-            繼續
-          </Button>
+        <div className="fixed inset-0 overflow-hidden bg-black">
+            {/* 背景圖：完整顯示不裁切 */}
+            <div
+                className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+                style={{ 
+                    backgroundImage: `url(${victoryImageUrl})`,
+                    // 添加一個柔和的放大動畫
+                    animation: 'scale-in-slow 20s forwards'
+                }}
+            />
+
+            {/* 漂浮粒子特效 */}
+            <div className="absolute inset-0 pointer-events-none">
+                {[...Array(30)].map((_, i) => (
+                    <div
+                        key={i}
+                        className="absolute w-1.5 h-1.5 bg-yellow-300 rounded-full animate-float-up"
+                        style={{
+                            left: `${Math.random() * 100}%`,
+                            bottom: `-${Math.random() * 20}%`,
+                            animationDelay: `${Math.random() * 15}s`,
+                            animationDuration: `${8 + Math.random() * 12}s`,
+                            opacity: 0,
+                        }}
+                    />
+                ))}
+            </div>
+
+            {/* 內容疊加層：放置在畫面左側垂直置中 */}
+            <div className="absolute top-1/2 left-0 transform -translate-y-1/2 z-10 p-12 w-full md:w-1/2 lg:w-1/3 bg-gradient-to-r from-black/90 via-black/70 to-transparent">
+                <div className="text-left text-white">
+                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-yellow-300 drop-shadow-lg animate-fade-in" style={{ animationDelay: '0.5s' }}>
+                        光明重新照耀城市
+                    </h1>
+                    <p className="text-xl md:text-2xl mb-8 drop-shadow animate-fade-in" style={{ animationDelay: '1s' }}>
+                        你成功擊敗了所有邪惡的敵人，讓這座城市再次恢復和平
+                    </p>
+                    <Button
+                        onClick={() => setGameState({
+                            timeLeft: 60,
+                            currentLevel: 1,
+                            gamePhase: 'cover', // 點擊後回到啟動頁
+                            isPaused: false,
+                            playerPhoto: null,
+                            lastResult: null,
+                            taskId: undefined,
+                        })}
+                        className="text-xl px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 animate-fade-in"
+                        style={{ animationDelay: '1.5s' }}
+                    >
+                        <RotateCcw className="mr-2 h-5 w-5" />
+                        重新開始遊戲
+                    </Button>
+                </div>
+            </div>
         </div>
-
-        {/* Light rays */}
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 bg-gradient-to-t from-transparent via-yellow-300 to-transparent opacity-60 animate-pulse"
-            style={{
-              height: '120vh',
-              left: `${(i * 8.33)}%`,
-              transform: `rotate(${i * 30}deg)`,
-              transformOrigin: 'center center',
-              animationDelay: `${i * 0.2}s`
-            }}
-          />
-        ))}
-      </div>
     );
   }
 
-  // 7. Game Complete
-  if (gameState.gamePhase === 'game-complete') {
-    const isVictory = gameState.currentLevel > 3 || gameState.lastResult === 'win';
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${isVictory ? 'bg-gradient-to-br from-green-400 via-blue-500 to-purple-600' : 'bg-gradient-to-br from-gray-800 via-red-900 to-black'}`}>
-        <Card className="p-8 text-center bg-black/70 backdrop-blur border-white/30 max-w-lg">
-          <h1 className={`text-6xl font-bold mb-4 ${isVictory ? 'text-yellow-400' : 'text-red-400'}`}>
-            {isVictory ? '你拯救了城市！' : '遊戲結束'}
-          </h1>
-          
-          <p className="text-2xl text-white mb-8">
-            {isVictory 
-              ? '你成功擊敗了所有的敵人，城市再次恢復和平。' 
-              : '雖然失敗了，但你的勇氣值得敬佩。'}
-          </p>
-          
-          <div className="space-y-4">
-            <Button 
-              onClick={resetGame}
-              className="w-full text-xl px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <RotateCcw className="mr-2 h-5 w-5" />
-              重新開始遊戲
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   // 6. Level Battle
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
