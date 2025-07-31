@@ -18,7 +18,60 @@ const DASH_SPEED = 20;
 //const JUMP_DURATION = 800; // 毫秒
 
 // 【修改一】新增 BGM 音量統一控制常數
-const BGM_VOLUME = 0.5; // 數值範圍 0.0 (靜音) 到 1.0 (最大聲)
+const BGM_VOLUME = 0.5; // BGM 總音量 (0.0 至 1.0)
+const SFX_VOLUME = 0.7; // SFX 總音量 (0.0 至 1.0)
+
+// 【修改後】SFX Map，包含音效實例與獨立音量
+const sfxMap = {
+  // Player
+  playerPunchEffort:   { audio: new Audio('/statics/audio/sfx/player/punch.mp3'),   independentVolume: 0.6 },
+  playerKickEffort:    { audio: new Audio('/statics/audio/sfx/player/kick.mp3'),    independentVolume: 0.6 },
+  playerSpecialEffort: { audio: new Audio('/statics/audio/sfx/player/special.mp3'), independentVolume: 0.7 },
+  playerHurt:          { audio: new Audio('/statics/audio/sfx/player/hurt.mp3'),    independentVolume: 0.7 },
+  playerDead:          { audio: new Audio('/statics/audio/sfx/player/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  playerVictory:       { audio: new Audio('/statics/audio/sfx/player/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 1
+  enemy1PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy1/punch.mp3'),   independentVolume: 0.1 },
+  enemy1KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy1/kick.mp3'),    independentVolume: 0.1 },
+  enemy1SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy1/special.mp3'), independentVolume: 0.1 },
+  enemy1Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/hurt.mp3'),    independentVolume: 0.7 },
+  enemy1Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy1Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy1/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 2
+  enemy2PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.9 },
+  enemy2KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.9 },
+  enemy2SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy2/special.mp3'), independentVolume: 1.0 },
+  enemy2Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/hurt.mp3'),    independentVolume: 0.9 },
+  enemy2Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy2Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy2/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 3
+  enemy3PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy3/punch.mp3'),   independentVolume: 0.9 },
+  enemy3KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy3/kick.mp3'),    independentVolume: 0.9 },
+  enemy3SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 1.0 },
+  enemy3Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/hurt.mp3'),    independentVolume: 0.9 },
+  enemy3Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy3Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy3/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+  
+  // Impacts
+  impactPunch:   { audio: new Audio('/statics/audio/sfx/impact/punch.mp3'),   independentVolume: 0.7 },
+  impactKick:    { audio: new Audio('/statics/audio/sfx/impact/kick.mp3'),    independentVolume: 0.7 },
+  impactSpecial: { audio: new Audio('/statics/audio/sfx/impact/special.mp3'), independentVolume: 0.7 },
+  // UI
+  uiClick1: { audio: new Audio('/statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 1.0 },
+  uiClick2: { audio: new Audio('/statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 1.0 },
+  uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 1.0 },
+};
+
+// 【新增】BGM Map，包含音源與獨立音量
+const bgmMap = {
+  cover:    { src: '/statics/audio/bgm/cover.m4a',    independentVolume: 1.0 },
+  victory:  { src: '/statics/audio/bgm/victory.mp3',  independentVolume: 0.9 },
+  failure:  { src: '/statics/audio/bgm/failure.mp3',  independentVolume: 0.9 },
+  ending:   { src: '/statics/audio/bgm/ending.mp3',   independentVolume: 1.0 },
+};
 
 // 【新增】定義遊戲世界的固定尺寸
 const GAME_WIDTH = 1920;
@@ -259,18 +312,18 @@ const LEVELS = [
     name: '第一關: 燃燒倉庫 火爆拳', 
     boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
-    description: '在燃燒的倉庫中，你遇到了火爆拳...',
+    description: '在燃燒的倉庫中, 你遇到了火爆拳...',
     bgImage: '/statics/backgrounds/Stage1/stage1.png',
-    bgmSrc: '/statics/bgm/stage1.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage1.mp3', independentVolume: 0.4 }
   },
   { 
     id: 2, 
     name: '第二關: 廢棄月台 蛇鞭女', 
     boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
-    description: '廢棄的月台上，蛇鞭女正等著你...',
+    description: '廢棄的月台上, 蛇鞭女正等著你...',
     bgImage: '/statics/backgrounds/Stage2/stage2.png',
-    bgmSrc: '/statics/bgm/stage2.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage2.mp3', independentVolume: 1.0 }
   },
   { 
     id: 3, 
@@ -279,7 +332,7 @@ const LEVELS = [
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
     description: '最終戰！虛空之塔的心控王現身...',
     bgImage: '/statics/backgrounds/Stage3/stage3.png',
-    bgmSrc: '/statics/bgm/stage3.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage3.mp3', independentVolume: 1.0 }
   }
 ];
 
@@ -686,10 +739,9 @@ const FightingGame: React.FC = () => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
   
-    audioEl.volume = BGM_VOLUME;
-  
     // 播放函數
-    const playMusic = (src: string, loop = true) => {
+    const playMusic = (src: string, independentVolume: number, loop = true) => {
+      audioEl.volume = BGM_VOLUME * independentVolume; // 計算最終音量
       if (!audioEl.src.endsWith(src)) {
         audioEl.src = src;
         audioEl.load();
@@ -710,40 +762,67 @@ const FightingGame: React.FC = () => {
       stopMusic();
       return;
     }
-  
+
     // 根據遊戲階段播放音樂
     switch (gameState.gamePhase) {
       case 'character-setup':
-        playMusic('/statics/bgm/cover.m4a');
+        playMusic(bgmMap.cover.src, bgmMap.cover.independentVolume);
         break;
       case 'level-battle':
         if (!gameState.isPaused) {
-          const currentBgm = LEVELS[gameState.currentLevel - 1]?.bgmSrc;
-          if (currentBgm) playMusic(currentBgm);
+          const currentLevelInfo = LEVELS[gameState.currentLevel - 1];
+          if (currentLevelInfo?.bgm) {
+            playMusic(currentLevelInfo.bgm.src, currentLevelInfo.bgm.independentVolume);
+          }
         } else {
           stopMusic();
         }
         break;
       case 'round-over':
-        stopMusic(); // 先停止背景音樂
+        stopMusic();
         setTimeout(() => {
           if (gameState.lastResult === 'win') {
-            playMusic('/statics/bgm/victory.mp3', true);
+            playMusic(bgmMap.victory.src, bgmMap.victory.independentVolume, true);
           } else if (gameState.lastResult === 'lose') {
-            playMusic('/statics/bgm/failure.mp3', true);
+            playMusic(bgmMap.failure.src, bgmMap.failure.independentVolume, true);
           }
         }, 100);
         break;
       case 'ending-animation':
-        playMusic('/statics/bgm/ending.mp3');
+        playMusic(bgmMap.ending.src, bgmMap.ending.independentVolume);
         break;
       default:
-        // cover, vs-screen 等階段停止音樂
         stopMusic();
         break;
     }
   }, [gameState.gamePhase, gameState.currentLevel, gameState.isPaused, isStoryVideoPlaying, gameState.lastResult]);
   
+//新增此 useEffect 來處理攻擊未擊中、勝利和死亡音效
+useEffect(() => {
+  const p1State = player1Ref.current.state;
+  const baseAttackType = getBaseAttackType(p1State);
+
+  if (baseAttackType) {
+    playSfxWithDucking(sfxMap[`player${baseAttackType}Effort`]);
+  } else if (p1State === 'dead') {
+    playSfxWithDucking(sfxMap.playerDead);
+  } else if (p1State === 'victory') {
+    playSfxWithDucking(sfxMap.playerVictory);
+  }
+}, [player1.state]);
+
+useEffect(() => {
+  const p2State = player2Ref.current.state;
+  const baseAttackType = getBaseAttackType(p2State);
+  const lvl = gameState.currentLevel;
+
+  if (baseAttackType) {
+    playSfxWithDucking(sfxMap[`enemy${lvl}${baseAttackType}Effort`]);
+  } else if (p2State === 'dead') {
+    playSfxWithDucking(sfxMap[`enemy${lvl}Dead`]);
+  }
+}, [player2.state]);
+
   useEffect(() => {
     if (isStoryVideoPlaying && storyVideoRef.current) {
       storyVideoRef.current.play().catch(error => {
@@ -840,7 +919,7 @@ const FightingGame: React.FC = () => {
   // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // 【修正】點擊後應該直接進入「角色設定」階段
+      playSfxWithDucking(sfxMap.uiClick1);
       setGameState(prev => ({ ...prev, gamePhase: 'character-setup' }));
     };
     if (gameState.gamePhase === 'cover') {
@@ -849,7 +928,7 @@ const FightingGame: React.FC = () => {
         window.removeEventListener('keydown', handleKeyPress);
       };
     }
-  }, [gameState.gamePhase, setGameState]); // 加上 setGameState 以符合 React Hook 依賴性規則
+  }, [gameState.gamePhase]);
 
   
   const handleP1AnimationComplete = () => {
@@ -1117,56 +1196,42 @@ useEffect(() => {
   const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(p1.state);
   
   if (
-    gameState.gamePhase === 'level-battle' &&
-    !gameState.isPaused &&
-    isPlayer1Attacking &&
-    !player1HitRegisteredRef.current &&
-    player1CollisionData &&
-    player2CollisionData
+    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer1Attacking &&
+    !player1HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p1HitBoxes = getAttackHitBox(p1, p1Frame, player1CollisionData);
-    const p2HurtBoxes = getHurtBox(p2, p2Frame, player2CollisionData);
+    const p2HurtBoxes = getHurtBox(p2, player2CurrentFrame, player2CollisionData);
 
-    if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
-      const collisionDetected = p1HitBoxes.some(hitBox =>
-        p2HurtBoxes.some(hurtBox =>
-          isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)
-        )
-      );
+    if (p1HitBoxes.length > 0 && p2HurtBoxes.some(hurtBox => p1HitBoxes.some(hitBox => isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)))) { 
+      player1HitRegisteredRef.current = true;
+      
+      const result = calculateCombatResult(p1, p2, gameState.currentLevel);
+      const baseAttackType = getBaseAttackType(p1.state);
 
-      if (collisionDetected) { 
-        player1HitRegisteredRef.current = true;
-        
-        // 【核心修正】呼叫戰鬥結算中心
-        const result = calculateCombatResult(p1, p2, gameState.currentLevel);
-
-        if (result.defended) {
-          // AI 成功防禦
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'defending'
-          }));
-          addEffect('defending', p2.position.x, p2.position.y);
-        } else {
-          // AI 被命中
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'hit'
-          }));
-          // 命中後玩家增加能量
-          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-          addEffect('hit', p2.position.x, p2.position.y);
+      if (result.defended) {
+        setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending' }));
+        addEffect('defending', p2.position.x, p2.position.y);
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
-
-        setTimeout(() => {
-          setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-        }, 500);
+      } else {
+        setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+        addEffect('hit', p2.position.x, p2.position.y);
+        
+        // 只播放撞擊聲和受傷聲
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
+        }
+        playSfxWithDucking(sfxMap[`enemy${gameState.currentLevel}Hurt`]);
       }
+
+      setTimeout(() => {
+        setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+      }, 500);
     }
   }
-}, [player1CurrentFrame, player2CurrentFrame]);
+}, [player1CurrentFrame]);
 
 useEffect(() => {
   const p1 = player1Ref.current;
@@ -1177,56 +1242,43 @@ useEffect(() => {
   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick', 'attacking'].includes(p2.state);
   
   if (
-    gameState.gamePhase === 'level-battle' &&
-    !gameState.isPaused &&
-    isPlayer2Attacking &&
-    !player2HitRegisteredRef.current &&
-    player1CollisionData &&
-    player2CollisionData
+    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer2Attacking &&
+    !player2HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p2HitBoxes = getAttackHitBox(p2, p2Frame, player2CollisionData);
-    const p1HurtBoxes = getHurtBox(p1, p1Frame, player1CollisionData);
+    const p1HurtBoxes = getHurtBox(p1, player1CurrentFrame, player1CollisionData);
 
-    if (p2HitBoxes.length > 0 && p1HurtBoxes.length > 0) {
-      const collisionDetected = p2HitBoxes.some(hitBox =>
-        p1HurtBoxes.some(hurtBox =>
-          isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)
-        )
-      );
+    if (p2HitBoxes.length > 0 && p1HurtBoxes.some(hurtBox => p2HitBoxes.some(hitBox => isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)))) { 
+      player2HitRegisteredRef.current = true;
+      
+      const result = calculateCombatResult(p2, p1, gameState.currentLevel);
+      const baseAttackType = getBaseAttackType(p2.state);
+      const lvl = gameState.currentLevel;
 
-      if (collisionDetected) { 
-        player2HitRegisteredRef.current = true;
-        
-        // 【核心修正】呼叫戰鬥結算中心
-        const result = calculateCombatResult(p2, p1, gameState.currentLevel);
-
-        if (result.defended) {
-          // 玩家成功防禦
-          setPlayer1(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'defending'
-          }));
-          addEffect('defending', p1.position.x, p1.position.y);
-        } else {
-          // 玩家被命中
-          setPlayer1(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'hit'
-          }));
-          // 命中後 AI 增加能量
-          setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-          addEffect('hit', p1.position.x, p1.position.y);
+      if (result.defended) {
+        setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending' }));
+        addEffect('defending', p1.position.x, p1.position.y);
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
+      } else {
+        setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+        addEffect('hit', p1.position.x, p1.position.y);
 
-        setTimeout(() => {
-          setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-        }, 500);
+        // 只播放撞擊聲和受傷聲
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
+        }
+        playSfxWithDucking(sfxMap.playerHurt);
       }
+
+      setTimeout(() => {
+        setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+      }, 500);
     }
   }
-}, [player1CurrentFrame, player2CurrentFrame]);
+}, [player2CurrentFrame]);
 
 // 【新增】這個 useEffect 用於處理起跳前的準備動作
 useEffect(() => {
@@ -1709,6 +1761,48 @@ function calculateCombatResult(
     }));
   };
 
+  // 【步驟二】貼上最終的音效函式
+  // 音效播放輔助函式 (BGM 自動閃避)
+  const playSfxWithDucking = (sfxObject: { audio: HTMLAudioElement; independentVolume: number; } | undefined) => {
+    if (!sfxObject) return;
+
+    const { audio, independentVolume } = sfxObject;
+    audio.volume = SFX_VOLUME * independentVolume; // 計算最終音量
+
+    const bgm = audioRef.current;
+    if (!bgm || bgm.paused) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.error("SFX 播放失敗:", e));
+      return;
+    }
+
+    const originalVolume = bgm.volume;
+    bgm.volume = originalVolume * 0.8;
+    audio.currentTime = 0;
+    audio.play().catch(e => console.error("SFX 播放失敗:", e));
+
+    const onSfxEnded = () => {
+      let currentVolume = bgm.volume;
+      const fadeInterval = setInterval(() => {
+        currentVolume = Math.min(currentVolume + 0.05, originalVolume);
+        bgm.volume = currentVolume;
+        if (currentVolume >= originalVolume) {
+          clearInterval(fadeInterval);
+        }
+      }, 80);
+      audio.removeEventListener('ended', onSfxEnded);
+    };
+    audio.addEventListener('ended', onSfxEnded);
+  };
+
+  // 從角色狀態中提取基礎攻擊類型 (例如從 'jump_punch' 提取 'Punch')
+  const getBaseAttackType = (state: Character['state']): 'Punch' | 'Kick' | 'Special' | null => {
+    if (state.includes('punch')) return 'Punch';
+    if (state.includes('kick')) return 'Kick';
+    if (state.includes('special')) return 'Special';
+    return null;
+  };
+
   // 需要在 return 外部定義這些變數
   const victoryImageUrl = gameState.taskId 
     ? `https://storage.googleapis.com/vibe_coding_bucket/results/${gameState.taskId}/2.png`
@@ -1733,6 +1827,24 @@ function calculateCombatResult(
           }}
         />
       );
+    });
+  };
+
+  const handleUploadClick = () => {
+    playSfxWithDucking(sfxMap.uiClick2);
+    fileInputRef.current?.click();
+  };
+
+  const handleRestartGame = () => {
+    playSfxWithDucking(sfxMap.uiClick3);
+    setGameState({
+      timeLeft: 60,
+      currentLevel: 1,
+      gamePhase: 'cover',
+      isPaused: false,
+      playerPhoto: null,
+      lastResult: null,
+      taskId: undefined,
     });
   };
 
@@ -1896,7 +2008,7 @@ function calculateCombatResult(
                   </div>
                 ) : (
                   <Button 
-                    onClick={() => fileInputRef.current?.click()} 
+                    onClick={handleUploadClick}
                     disabled={uploadLoading}
                     className="bg-cyan-500 hover:bg-cyan-600 text-white text-lg px-8 py-4 w-full shadow-lg"
                   >
@@ -1962,15 +2074,7 @@ function calculateCombatResult(
                   你成功擊敗了所有邪惡的敵人，讓這座城市再次恢復和平
               </p>
               <Button
-                  onClick={() => setGameState({
-                      timeLeft: 60,
-                      currentLevel: 1,
-                      gamePhase: 'cover', // 點擊後回到啟動頁
-                      isPaused: false,
-                      playerPhoto: null,
-                      lastResult: null,
-                      taskId: undefined,
-                  })}
+                  onClick={handleRestartGame}
                   className="text-xl px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 animate-fade-in"
                   style={{ animationDelay: '1.5s' }}
               >
