@@ -1,4 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
+const GlobalStyles = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    
+    @keyframes pop-in-out {
+      0% { transform: scale(0.5); opacity: 0; }
+      20%, 80% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    .animate-pop-in-out {
+      animation: pop-in-out 1.4s forwards;
+    }
+  `}</style>
+);
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -63,6 +78,8 @@ const sfxMap = {
   uiClick1: { audio: new Audio('/statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 1.0 },
   uiClick2: { audio: new Audio('/statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 1.0 },
   uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 1.0 },
+  announcerReady: { audio: new Audio('/statics/audio/sfx/ui/ready.mp3'), independentVolume: 1.0 }, // 【新增】
+  announcerGo:    { audio: new Audio('/statics/audio/sfx/ui/go.mp3'),    independentVolume: 1.0 }, // 【新增】
 };
 
 // 【新增】BGM Map，包含音源與獨立音量
@@ -290,7 +307,7 @@ interface Character {
 interface GameState {
   timeLeft: number;
   currentLevel: number;
-  gamePhase: 'cover' | 'character-setup' | 'level-battle' | 'round-over' | 'ending-animation' | 'vs-screen';
+  gamePhase: 'cover' | 'character-setup' | 'pre-battle-sequence' | 'level-battle' | 'round-over' | 'ending-animation' | 'vs-screen';
   isPaused: boolean;
   playerPhoto: string | null;
   lastResult?: 'win' | 'lose' | null;
@@ -690,6 +707,8 @@ const FightingGame: React.FC = () => {
   const player1HitRegisteredRef = useRef(false);
   const player2HitRegisteredRef = useRef(false);
   const aiActionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // <-- 【新增】這個 Ref
+  const [sequenceText, setSequenceText] = useState('');
+
     // 3. 幀追蹤狀態
   const [player1CurrentFrame, setPlayer1CurrentFrame] = useState(1);
   const [player2CurrentFrame, setPlayer2CurrentFrame] = useState(1);
@@ -837,7 +856,7 @@ useEffect(() => {
     const timer = setTimeout(() => {
       setGameState(prev => ({ 
         ...prev, 
-        gamePhase: 'level-battle', 
+        gamePhase: 'pre-battle-sequence', 
         isPaused: false 
       }));
       resetPlayersForNewBattle();
@@ -845,6 +864,30 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }
 }, [gameState.gamePhase]);
+
+// 【步驟三】新增此 useEffect 來控制戰前動畫序列
+useEffect(() => {
+  if (gameState.gamePhase === 'pre-battle-sequence') {
+    setPressedKeys(new Set()); 
+
+    const sequenceActions = [
+      { text: `Stage ${gameState.currentLevel}`, sfx: sfxMap.uiClick1, delay: 500 },
+      { text: 'Ready', sfx: sfxMap.announcerReady, delay: 2000 },
+      { text: 'Go!', sfx: sfxMap.announcerGo, delay: 3500 },
+      { text: '', sfx: undefined, delay: 4500, action: () => setGameState(prev => ({ ...prev, gamePhase: 'level-battle' })) }
+    ];
+
+    const timeouts = sequenceActions.map(seq => 
+      setTimeout(() => {
+        setSequenceText(seq.text);
+        if (seq.sfx) playSfxWithDucking(seq.sfx);
+        if (seq.action) seq.action();
+      }, seq.delay)
+    );
+
+    return () => timeouts.forEach(clearTimeout);
+  }
+}, [gameState.gamePhase, gameState.currentLevel]);
 
   // 【新增/替換】處理遊戲畫布縮放的 useEffect
   useEffect(() => {
@@ -1851,6 +1894,7 @@ function calculateCombatResult(
   // 將所有 return 合併為一個
   return (
     <>
+      <GlobalStyles />
       <audio ref={audioRef} loop />
 
       {gameState.gamePhase === 'cover' && (
@@ -2085,7 +2129,7 @@ function calculateCombatResult(
       </div>
     </div>
   )}
-  {['level-battle', 'round-over'].includes(gameState.gamePhase) && (
+  {['level-battle', 'round-over', 'pre-battle-sequence'].includes(gameState.gamePhase) && (
     <div className="w-screen h-screen bg-black relative overflow-hidden flex items-center justify-center">
       {/* 2. 內層的遊戲畫布 (縮放用) */}
       <div 
@@ -2312,6 +2356,22 @@ function calculateCombatResult(
             <span>L：必殺技</span>
           </div>
         </div>
+
+      {/* 戰前動畫文字 (疊加在最上層) */}
+      {sequenceText && (
+        <div className="absolute inset-0 flex justify-center items-center z-50 pointer-events-none">
+          <p 
+            key={sequenceText}
+            className="text-9xl font-bold text-white animate-pop-in-out" 
+            style={{
+              fontFamily: "'Press Start 2P', cursive",
+              textShadow: '6px 6px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000'
+            }}
+          >
+            {sequenceText}
+          </p>
+        </div>
+      )}
 
         {gameState.isPaused && gameState.gamePhase === 'level-battle' && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
