@@ -635,7 +635,11 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
   let action: Character['state'] = 'idle';
   switch (currentAiState) {
     case 'SPECIAL_READY':
-      action = (distance < 350) ? 'special_attack' : 'walk_forward';
+      if (ai.energy >= ai.maxEnergy && distance < 350) {
+        action = 'special_attack';
+      } else {
+        action = 'walk_forward'; // 能量不夠或距離太遠，則改為前進
+      }
       break;
     case 'DEFENSIVE':
       action = (Math.random() < profile.defenseChance) ? 'defending' : 'walk_backward';
@@ -985,23 +989,6 @@ useEffect(() => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []); // 空依賴陣列，表示只在組件掛載和卸載時執行
-
-  // Opening animation effect
-  // useEffect(() => {
-  //   if (gameState.gamePhase === 'opening-animation') {
-  //     const interval = setInterval(() => {
-  //       setOpeningStep(prev => {
-  //         if (prev < OPENING_SCENES.length - 1) {
-  //           return prev + 1;
-  //         } else {
-  //           setGameState(current => ({ ...current, gamePhase: 'character-setup' }));
-  //           return prev;
-  //         }
-  //       });
-  //     }, 3000);
-  //     return () => clearInterval(interval);
-  //   }
-  // }, [gameState.gamePhase]);
 
   // Game timer
   useEffect(() => {
@@ -1756,6 +1743,20 @@ function calculateCombatResult(
     }
   }, [player1.position.x, player2.position.x]); // 當任一角色的X座標改變時觸發
 
+  const handlePauseClick = () => {
+    playSfxWithDucking(sfxMap.uiClick3);
+    setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }));
+  };
+  const handleResumeClick = () => {
+    playSfxWithDucking(sfxMap.uiClick3);
+    setGameState(prev => ({ ...prev, isPaused: false }));
+  };
+
+  const handleModalButtonClick = () => {
+    playSfxWithDucking(sfxMap.uiClick3);
+    handleResultModalClose();
+  };
+
   // 處理 Modal 按鈕
   const handleResultModalClose = () => {
     audioRef.current?.pause();
@@ -2413,15 +2414,23 @@ function calculateCombatResult(
         </div>
         {/* Level Battle UI */}
         <div className="absolute top-0 left-0 right-0 z-10 p-4">
-          {/* 玩家頭像 */}
-          {/* <div className="absolute top-4 left-4 w-12 h-12 rounded-full border-2 border-white overflow-hidden z-20">
-            {gameState.playerPhoto ? (
-              <img src={gameState.playerPhoto} alt="Hero Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white text-lg">😊</div>
-            )}
-          </div> */}
-          
+         <div className="flex justify-between items-start mb-4">
+        {/* 左側資訊 & 暫停按鈕 */}
+          <div className="w-1/3 flex items-center space-x-4">
+      <Button
+        onClick={handlePauseClick} // 綁定音效函式
+        variant="outline"
+        size="sm"
+        className="bg-black/50 text-white hover:bg-white/20 hover:text-white"
+      >
+        {gameState.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+      </Button>
+      <div className="text-white font-bold">
+        <div>{currentLevelData?.name}</div>
+        <div>第 {gameState.currentLevel} 關</div>
+      </div>
+     </div>
+    </div>
           {/* Health bars */}
 <div className="flex justify-between items-center mb-2">
   {/* 玩家血條與頭像 */}
@@ -2523,7 +2532,7 @@ function calculateCombatResult(
             <Card className="p-8 text-center bg-black/80 border-white">
               <h2 className="text-4xl font-bold text-white mb-4">遊戲暫停</h2>
               <Button 
-                onClick={() => setGameState(prev => ({ ...prev, isPaused: false }))}
+                onClick={handleResumeClick}
                 className="text-xl px-6 py-3"
               >
                 繼續遊戲
@@ -2537,7 +2546,7 @@ function calculateCombatResult(
               <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
               <button
                 className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
-                onClick={handleResultModalClose}
+                onClick={handleModalButtonClick} // 綁定音效函式
               >
                 {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
               </button>
