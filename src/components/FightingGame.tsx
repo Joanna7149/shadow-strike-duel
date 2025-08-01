@@ -249,16 +249,56 @@ function getAnimationSource(state: string, useSpritesheet: boolean = false): Ani
       path: `MainHero/animations/${baseConfig.path}` // 將角色資料夾和 'animations' 子資料夾加到路徑前面
     };
   }
-    
-  //   // 對於 PNG 模式，根據狀態返回對應的配置
-  //   const pngConfig = ANIMATION_CONFIGS.png[state as keyof typeof ANIMATION_CONFIGS.png];
-  //   if (pngConfig) {
-  //     return pngConfig;
-  //   }
-  //   // 如果找不到對應的狀態，返回 idle
-  //   return ANIMATION_CONFIGS.png.idle;
-  // }
 }
+
+const StatusBar: React.FC<{
+  type: 'health' | 'energy';
+  currentValue: number;
+  displayValue?: number; // 僅用於血條
+  maxValue: number;
+  isPlayer1: boolean;
+}> = ({ type, currentValue, displayValue, maxValue, isPlayer1 }) => {
+  const percentage = (currentValue / maxValue) * 100;
+  const displayPercentage = displayValue ? (displayValue / maxValue) * 100 : 0;
+
+  const barContainerClasses = "relative w-full h-8 border-2 border-black bg-gray-700/80 rounded-sm overflow-hidden shadow-lg";
+  const barBaseClasses = "absolute top-0 h-full transition-all duration-500 ease-out";
+
+  if (type === 'health') {
+    return (
+      <div className={barContainerClasses}>
+        {/* 紅色延遲血條 (底層) */}
+        <div className={barBaseClasses} style={{ width: `${displayPercentage}%`, background: '#c0392b', zIndex: 1 }} />
+        {/* 綠色即時血條 (上層) */}
+        <div className={barBaseClasses} style={{ width: `${percentage}%`, background: 'linear-gradient(to bottom, #2ecc71, #27ae60)', zIndex: 2 }} />
+      </div>
+    );
+  }
+
+  if (type === 'energy') {
+    const isMax = currentValue >= maxValue;
+    return (
+      <div className="relative w-full h-6 border-2 border-black bg-gray-900/80 rounded-sm overflow-hidden shadow-md mt-1">
+        {/* 黃色能量條 */}
+        <div className={barBaseClasses} style={{ width: `${percentage}%`, background: 'linear-gradient(to bottom, #f1c40f, #f39c12)' }} />
+        {/* MAX 文字 */}
+        {isMax && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <p className="font-bold text-sm text-red-500 animate-pulse" style={{ textShadow: '1px 1px 2px black' }}>MAX</p>
+          </div>
+        )}
+        {/* 掃光特效 */}
+        {isMax && (
+          <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+            <div className="absolute top-0 -left-full w-1/2 h-full bg-gradient-to-r from-transparent via-white/50 to-transparent animate-shimmer" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+};
 
 // 新增：根據關卡獲取對手角色動畫來源
 function getEnemyAnimationSource(state: string, currentLevel: number): AnimationSource {
@@ -285,6 +325,7 @@ interface Character {
   id: string;
   name: string;
   health: number;
+  displayHealth: number;
   maxHealth: number;
   energy: number;
   maxEnergy: number;
@@ -658,6 +699,7 @@ const FightingGame: React.FC = () => {
     id: 'player1',
     name: '玩家',
     health: 100,
+    displayHealth: 100,
     maxHealth: 100,
     energy: 0, // 初始為0
     maxEnergy: 100,
@@ -675,6 +717,7 @@ const FightingGame: React.FC = () => {
     id: 'player2',
     name: 'AI',
     health: 100,
+    displayHealth: 100,
     maxHealth: 100,
     energy: 0,
     maxEnergy: 100,
@@ -850,6 +893,7 @@ useEffect(() => {
     const timer = setTimeout(() => {
       setGameState(prev => ({ 
         ...prev, 
+        timeLeft: 60,
         gamePhase: 'pre-battle-sequence', 
         isPaused: false 
       }));
@@ -1252,7 +1296,15 @@ useEffect(() => {
           setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
       } else {
-        setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer2(prev => {
+          const newHealth = Math.max(0, prev.health - result.damage);
+          // 延遲 0.5 秒後，才更新紅色的 displayHealth
+          setTimeout(() => {
+            setPlayer2(p => ({ ...p, displayHealth: newHealth }));
+          }, 500);
+          // 立刻更新綠色的 health
+          return { ...prev, health: newHealth, state: 'hit' };
+        });
         setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
         addEffect('hit', p2.position.x, p2.position.y);
         
@@ -1299,7 +1351,15 @@ useEffect(() => {
           setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
       } else {
-        setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer1(prev => {
+          const newHealth = Math.max(0, prev.health - result.damage);
+          // 延遲 0.5 秒後，才更新紅色的 displayHealth
+          setTimeout(() => {
+            setPlayer1(p => ({ ...p, displayHealth: newHealth }));
+          }, 500);
+          // 立刻更新綠色的 health
+          return { ...prev, health: newHealth, state: 'hit' };
+        });
         setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
         addEffect('hit', p1.position.x, p1.position.y);
 
@@ -1646,6 +1706,7 @@ function calculateCombatResult(
         setGameState(prev => ({
           ...prev,
           currentLevel: prev.currentLevel + 1,
+          timeLeft: 60,
           gamePhase: 'vs-screen',
         }));
         resetPlayersForNewBattle();
@@ -1655,6 +1716,7 @@ function calculateCombatResult(
       // 【修正點】失敗後，重新進入本關的戰前動畫
       setGameState(prev => ({
         ...prev,
+        timeLeft: 60,
         gamePhase: 'pre-battle-sequence',
       }));
       resetPlayersForNewBattle();
@@ -2274,87 +2336,69 @@ function calculateCombatResult(
             )}
           </div> */}
           
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
-                variant="outline"
-                size="sm"
-              >
-                {gameState.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-              </Button>
-              <div className="text-white font-bold text-lg">
-                {currentLevelData?.name}
-              </div>
-              <div className="text-white font-bold">第 {gameState.currentLevel} 關</div>
-            </div>
-          </div>
-
           {/* Health bars */}
-          <div className="flex justify-between items-center mb-2">
-            {/* 玩家血條與頭像 */}
-            <div className="w-1/3 flex items-center space-x-2">
-              <div className="w-28 h-28 flex-shrink-0">
-                {gameState.playerPhoto ? (
-                  <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="text-white font-bold mb-1">玩家</div>
-                <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
-                    style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
-                  />
-                </div>
-                <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
-                  <div
-                    className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
-                    style={{ width: `${(player1.energy / player1.maxEnergy) * 100}%` }}
-                  />
-              </div>
-            </div>
-            </div>
-            {/* 倒數計時器 */}
-            <div className="w-1/3 flex items-center justify-center">
-              <div className="text-3xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
-                {gameState.timeLeft}
-              </div>
-            </div>
-            {/* AI血條與頭像 */}
-            <div className="w-1/3 flex items-center space-x-2 justify-end">
-              <div className="flex-1 text-right">
-                <div className="text-white font-bold mb-1">AI</div>
-                <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
-                    style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
-                  />
-                </div>
-                <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
-                  <div
-                    className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
-                    style={{ width: `${(player2.energy / player2.maxEnergy) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div className="w-28 h-28 flex-shrink-0 ml-2">
-                <img
-                  src={
-                    gameState.currentLevel === 1
-                      ? '/statics/Avatars/Avatar_Enemy01.png'
-                      : gameState.currentLevel === 2
-                      ? '/statics/Avatars/Avatar_Enemy02.png'
-                      : '/statics/Avatars/Avatar_Enemy03.png'
-                  }
-                  alt="AI"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            </div>
-          </div>
+<div className="flex justify-between items-center mb-2">
+  {/* 玩家血條與頭像 */}
+  <div className="w-2/5 flex items-center space-x-4">
+    <div className="w-28 h-28 flex-shrink-0">
+      {gameState.playerPhoto ? (
+        <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
+      )}
+    </div>
+    <div className="flex-1">
+      <div className="text-white font-bold mb-1">玩家</div>
+      <StatusBar
+        type="health"
+        currentValue={player1.health}
+        displayValue={player1.displayHealth}
+        maxValue={player1.maxHealth}
+        isPlayer1={true}
+      />
+      <StatusBar
+        type="energy"
+        currentValue={player1.energy}
+        maxValue={player1.maxEnergy}
+        isPlayer1={true}
+      />
+    </div>
+  </div>
+  
+  {/* 倒數計時器 */}
+  <div className="flex-1 flex items-center justify-center">
+    <div className="text-5xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
+      {gameState.timeLeft}
+    </div>
+  </div>
+
+  {/* AI血條與頭像 */}
+  <div className="w-2/5 flex items-center space-x-4 justify-end">
+    <div className="flex-1 text-right">
+      <div className="text-white font-bold mb-1">AI</div>
+      <StatusBar
+        type="health"
+        currentValue={player2.health}
+        displayValue={player2.displayHealth}
+        maxValue={player2.maxHealth}
+        isPlayer1={false}
+      />
+      <StatusBar
+        type="energy"
+        currentValue={player2.energy}
+        maxValue={player2.maxEnergy}
+        isPlayer1={false}
+      />
+    </div>
+    <div className="w-28 h-28 flex-shrink-0 ml-2">
+      <img
+        src={`/statics/Avatars/Avatar_Enemy0${gameState.currentLevel}.png`}
+        alt="AI"
+        className="w-full h-full object-contain"
+      />
+    </div>
+  </div>
+</div>
         </div>
 
              {/* Controls */}
