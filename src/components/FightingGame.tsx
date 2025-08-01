@@ -80,6 +80,7 @@ const sfxMap = {
   uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 1.0 },
   announcerReady: { audio: new Audio('/statics/audio/sfx/ui/ready.mp3'), independentVolume: 1.0 }, // 【新增】
   announcerGo:    { audio: new Audio('/statics/audio/sfx/ui/go.mp3'),    independentVolume: 1.0 }, // 【新增】
+  announcerKO:    { audio: new Audio('/statics/audio/sfx/ui/ko.mp3'),      independentVolume: 1.0 }, // 【新增】
 };
 
 // 【新增】BGM Map，包含音源與獨立音量
@@ -700,7 +701,7 @@ const FightingGame: React.FC = () => {
   const player1HitRegisteredRef = useRef(false);
   const player2HitRegisteredRef = useRef(false);
   const aiActionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // <-- 【新增】這個 Ref
-  const [sequenceText, setSequenceText] = useState('');
+  const [announcementText, setAnnouncementText] = useState('');
 
     // 3. 幀追蹤狀態
   const [player1CurrentFrame, setPlayer1CurrentFrame] = useState(1);
@@ -872,7 +873,7 @@ useEffect(() => {
 
     const timeouts = sequenceActions.map(seq => 
       setTimeout(() => {
-        setSequenceText(seq.text);
+        setAnnouncementText(seq.text);
         if (seq.sfx) playSfxWithDucking(seq.sfx);
         if (seq.action) seq.action();
       }, seq.delay)
@@ -1589,20 +1590,30 @@ function calculateCombatResult(
     // 【核心修正】立即更新 gamePhase 和 lastResult，以觸發對應的音樂
     setGameState(prev => ({ ...prev, gamePhase: 'round-over', lastResult: result }));
 
-    // 更新角色動畫
-    setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'dead' }));
-    setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'dead' }));
+    // 【修正點】更新角色動畫邏輯
+    if (winner === 'player1') {
+      // 玩家勝利
+      setPlayer1(prev => ({ ...prev, state: 'victory' }));
+      setPlayer2(prev => ({ ...prev, state: 'dead' }));
+    } else {
+      // 玩家失敗 (包含 AI 勝利或平手)
+      setPlayer1(prev => ({ ...prev, state: 'dead' }));
+      setPlayer2(prev => ({ ...prev, state: 'victory' }));
+    }
     
-    if (winner !== 'draw') {
-        addEffect('ko', 400, 200);
+    // 只有在一方血量歸零時才觸發 K.O. 動畫
+    if (player1.health <= 0 || player2.health <= 0) {
+      setAnnouncementText('K.O.');
+      playSfxWithDucking(sfxMap.announcerKO);
+      setTimeout(() => setAnnouncementText(''), 1500); // 1.5秒後清除文字
     }
 
-    // 延遲顯示結果視窗，讓勝利/失敗音樂有時間播放
+    // 延遲顯示結果視窗，等待 K.O. 動畫播完
     setTimeout(() => {
       setResultText(result === 'win' ? '勝利！進入下一關' : '失敗！再挑戰一次');
       setResultType(result);
       setShowResultModal(true);
-    }, 1500);
+    }, 2500); // 延長等待時間
   };
   // 新增這個 useEffect 來處理角色自動轉向
   useEffect(() => {
@@ -2245,7 +2256,6 @@ function calculateCombatResult(
               {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
               {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
               {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
-              {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
               {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
               {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
               {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
@@ -2361,17 +2371,19 @@ function calculateCombatResult(
         </div>
 
       {/* 戰前動畫文字 (疊加在最上層) */}
-      {sequenceText && (
+      {announcementText && (
         <div className="absolute inset-0 flex justify-center items-center z-50 pointer-events-none">
           <p 
-            key={sequenceText}
-            className="text-9xl font-bold text-white animate-pop-in-out" 
+            key={announcementText} // 使用 key 來觸發 React 的重新渲染，從而重置動畫
+            className={`text-9xl font-bold animate-pop-in-out ${
+              announcementText === 'K.O.' ? 'text-red-600' : 'text-white'
+            }`}
             style={{
               fontFamily: "'Press Start 2P', cursive",
               textShadow: '6px 6px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000'
             }}
           >
-            {sequenceText}
+            {announcementText}
           </p>
         </div>
       )}
