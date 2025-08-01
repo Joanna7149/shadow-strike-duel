@@ -17,6 +17,62 @@ const DASH_SPEED = 20;
 //const JUMP_HEIGHT = 200;
 //const JUMP_DURATION = 800; // 毫秒
 
+// 【修改一】新增 BGM 音量統一控制常數
+const BGM_VOLUME = 0.5; // BGM 總音量 (0.0 至 1.0)
+const SFX_VOLUME = 0.7; // SFX 總音量 (0.0 至 1.0)
+
+// 【修改後】SFX Map，包含音效實例與獨立音量
+const sfxMap = {
+  // Player
+  playerPunchEffort:   { audio: new Audio('/statics/audio/sfx/player/punch.mp3'),   independentVolume: 0.6 },
+  playerKickEffort:    { audio: new Audio('/statics/audio/sfx/player/kick.mp3'),    independentVolume: 0.6 },
+  playerSpecialEffort: { audio: new Audio('/statics/audio/sfx/player/special.mp3'), independentVolume: 0.7 },
+  playerHurt:          { audio: new Audio('/statics/audio/sfx/player/hurt.mp3'),    independentVolume: 0.7 },
+  playerDead:          { audio: new Audio('/statics/audio/sfx/player/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  playerVictory:       { audio: new Audio('/statics/audio/sfx/player/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 1
+  enemy1PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy1/punch.mp3'),   independentVolume: 0.1 },
+  enemy1KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy1/kick.mp3'),    independentVolume: 0.1 },
+  enemy1SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy1/special.mp3'), independentVolume: 0.1 },
+  enemy1Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/hurt.mp3'),    independentVolume: 0.7 },
+  enemy1Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy1Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy1/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 2
+  enemy2PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.9 },
+  enemy2KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.9 },
+  enemy2SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy2/special.mp3'), independentVolume: 1.0 },
+  enemy2Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/hurt.mp3'),    independentVolume: 0.9 },
+  enemy2Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy2Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy2/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+
+  // Enemy 3
+  enemy3PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy3/punch.mp3'),   independentVolume: 0.9 },
+  enemy3KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy3/kick.mp3'),    independentVolume: 0.9 },
+  enemy3SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 1.0 },
+  enemy3Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/hurt.mp3'),    independentVolume: 0.9 },
+  enemy3Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/dead.mp3'),    independentVolume: 1.0 }, // 【新增】
+  enemy3Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy3/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+  
+  // Impacts
+  impactPunch:   { audio: new Audio('/statics/audio/sfx/impact/punch.mp3'),   independentVolume: 0.7 },
+  impactKick:    { audio: new Audio('/statics/audio/sfx/impact/kick.mp3'),    independentVolume: 0.7 },
+  impactSpecial: { audio: new Audio('/statics/audio/sfx/impact/special.mp3'), independentVolume: 0.7 },
+  // UI
+  uiClick1: { audio: new Audio('/statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 1.0 },
+  uiClick2: { audio: new Audio('/statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 1.0 },
+  uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 1.0 },
+};
+
+// 【新增】BGM Map，包含音源與獨立音量
+const bgmMap = {
+  cover:    { src: '/statics/audio/bgm/cover.m4a',    independentVolume: 1.0 },
+  victory:  { src: '/statics/audio/bgm/victory.mp3',  independentVolume: 0.9 },
+  failure:  { src: '/statics/audio/bgm/failure.mp3',  independentVolume: 0.9 },
+  ending:   { src: '/statics/audio/bgm/ending.mp3',   independentVolume: 1.0 },
+};
+
 // 【新增】定義遊戲世界的固定尺寸
 const GAME_WIDTH = 1920;
 const GAME_HEIGHT = 1080;
@@ -256,18 +312,18 @@ const LEVELS = [
     name: '第一關: 燃燒倉庫 火爆拳', 
     boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
-    description: '在燃燒的倉庫中，你遇到了火爆拳...',
+    description: '在燃燒的倉庫中, 你遇到了火爆拳...',
     bgImage: '/statics/backgrounds/Stage1/stage1.png',
-    bgmSrc: '/statics/bgm/stage1.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage1.mp3', independentVolume: 0.4 }
   },
   { 
     id: 2, 
     name: '第二關: 廢棄月台 蛇鞭女', 
     boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
-    description: '廢棄的月台上，蛇鞭女正等著你...',
+    description: '廢棄的月台上, 蛇鞭女正等著你...',
     bgImage: '/statics/backgrounds/Stage2/stage2.png',
-    bgmSrc: '/statics/bgm/stage2.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage2.mp3', independentVolume: 1.0 }
   },
   { 
     id: 3, 
@@ -276,7 +332,7 @@ const LEVELS = [
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
     description: '最終戰！虛空之塔的心控王現身...',
     bgImage: '/statics/backgrounds/Stage3/stage3.png',
-    bgmSrc: '/statics/bgm/stage3.mp3' // 【新增】第一關的 BGM 路徑
+    bgm: { src: '/statics/audio/bgm/stage3.mp3', independentVolume: 1.0 }
   }
 ];
 
@@ -683,31 +739,89 @@ const FightingGame: React.FC = () => {
     const audioEl = audioRef.current;
     if (!audioEl) return;
   
-    // 檢查是否處於需要播放音樂的階段
-    if (gameState.gamePhase === 'level-battle' && !gameState.isPaused) {
-      const currentBgm = LEVELS[gameState.currentLevel - 1]?.bgmSrc;
-  
-      // 如果 BGM 來源不正確，就更新來源並重新載入
-      // `.endsWith()` 確保即使有 URL 參數也能正確比對
-      if (currentBgm && !audioEl.src.endsWith(currentBgm)) {
-        audioEl.src = currentBgm;
+    // 播放函數
+    const playMusic = (src: string, independentVolume: number, loop = true) => {
+      audioEl.volume = BGM_VOLUME * independentVolume; // 計算最終音量
+      if (!audioEl.src.endsWith(src)) {
+        audioEl.src = src;
         audioEl.load();
       }
-  
-      // 播放音樂 (並處理瀏覽器可能的回絕錯誤)
+      audioEl.loop = loop;
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error("BGM 播放失敗:", error);
-        });
+        playPromise.catch(error => console.error("BGM 播放失敗:", error));
       }
+    };
   
-    } else {
-      // 如果不在戰鬥中或已暫停，則暫停音樂
+    const stopMusic = () => {
       audioEl.pause();
+    };
+  
+    // 影片播放時，優先暫停音樂
+    if (isStoryVideoPlaying) {
+      stopMusic();
+      return;
     }
-    
-  }, [gameState.currentLevel, gameState.gamePhase, gameState.isPaused]); // 監聽這些狀態的變化
+
+    // 根據遊戲階段播放音樂
+    switch (gameState.gamePhase) {
+      case 'character-setup':
+        playMusic(bgmMap.cover.src, bgmMap.cover.independentVolume);
+        break;
+      case 'level-battle':
+        if (!gameState.isPaused) {
+          const currentLevelInfo = LEVELS[gameState.currentLevel - 1];
+          if (currentLevelInfo?.bgm) {
+            playMusic(currentLevelInfo.bgm.src, currentLevelInfo.bgm.independentVolume);
+          }
+        } else {
+          stopMusic();
+        }
+        break;
+      case 'round-over':
+        stopMusic();
+        setTimeout(() => {
+          if (gameState.lastResult === 'win') {
+            playMusic(bgmMap.victory.src, bgmMap.victory.independentVolume, true);
+          } else if (gameState.lastResult === 'lose') {
+            playMusic(bgmMap.failure.src, bgmMap.failure.independentVolume, true);
+          }
+        }, 100);
+        break;
+      case 'ending-animation':
+        playMusic(bgmMap.ending.src, bgmMap.ending.independentVolume);
+        break;
+      default:
+        stopMusic();
+        break;
+    }
+  }, [gameState.gamePhase, gameState.currentLevel, gameState.isPaused, isStoryVideoPlaying, gameState.lastResult]);
+  
+//新增此 useEffect 來處理攻擊未擊中、勝利和死亡音效
+useEffect(() => {
+  const p1State = player1Ref.current.state;
+  const baseAttackType = getBaseAttackType(p1State);
+
+  if (baseAttackType) {
+    playSfxWithDucking(sfxMap[`player${baseAttackType}Effort`]);
+  } else if (p1State === 'dead') {
+    playSfxWithDucking(sfxMap.playerDead);
+  } else if (p1State === 'victory') {
+    playSfxWithDucking(sfxMap.playerVictory);
+  }
+}, [player1.state]);
+
+useEffect(() => {
+  const p2State = player2Ref.current.state;
+  const baseAttackType = getBaseAttackType(p2State);
+  const lvl = gameState.currentLevel;
+
+  if (baseAttackType) {
+    playSfxWithDucking(sfxMap[`enemy${lvl}${baseAttackType}Effort`]);
+  } else if (p2State === 'dead') {
+    playSfxWithDucking(sfxMap[`enemy${lvl}Dead`]);
+  }
+}, [player2.state]);
 
   useEffect(() => {
     if (isStoryVideoPlaying && storyVideoRef.current) {
@@ -784,6 +898,11 @@ const FightingGame: React.FC = () => {
 
   // Battle end check
   useEffect(() => {
+    // 【核心修正】只在戰鬥階段才檢查勝負，避免影響其他頁面
+  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) {
+    return;
+   }
+
     if (gameState.timeLeft === 0 || player1.health <= 0 || player2.health <= 0) {
       handleBattleEnd();
     }
@@ -800,7 +919,7 @@ const FightingGame: React.FC = () => {
   // Keyboard controls for cover screen
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // 【修正】點擊後應該直接進入「角色設定」階段
+      playSfxWithDucking(sfxMap.uiClick1);
       setGameState(prev => ({ ...prev, gamePhase: 'character-setup' }));
     };
     if (gameState.gamePhase === 'cover') {
@@ -809,7 +928,7 @@ const FightingGame: React.FC = () => {
         window.removeEventListener('keydown', handleKeyPress);
       };
     }
-  }, [gameState.gamePhase, setGameState]); // 加上 setGameState 以符合 React Hook 依賴性規則
+  }, [gameState.gamePhase]);
 
   
   const handleP1AnimationComplete = () => {
@@ -1077,56 +1196,42 @@ useEffect(() => {
   const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(p1.state);
   
   if (
-    gameState.gamePhase === 'level-battle' &&
-    !gameState.isPaused &&
-    isPlayer1Attacking &&
-    !player1HitRegisteredRef.current &&
-    player1CollisionData &&
-    player2CollisionData
+    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer1Attacking &&
+    !player1HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p1HitBoxes = getAttackHitBox(p1, p1Frame, player1CollisionData);
-    const p2HurtBoxes = getHurtBox(p2, p2Frame, player2CollisionData);
+    const p2HurtBoxes = getHurtBox(p2, player2CurrentFrame, player2CollisionData);
 
-    if (p1HitBoxes.length > 0 && p2HurtBoxes.length > 0) {
-      const collisionDetected = p1HitBoxes.some(hitBox =>
-        p2HurtBoxes.some(hurtBox =>
-          isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)
-        )
-      );
+    if (p1HitBoxes.length > 0 && p2HurtBoxes.some(hurtBox => p1HitBoxes.some(hitBox => isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)))) { 
+      player1HitRegisteredRef.current = true;
+      
+      const result = calculateCombatResult(p1, p2, gameState.currentLevel);
+      const baseAttackType = getBaseAttackType(p1.state);
 
-      if (collisionDetected) { 
-        player1HitRegisteredRef.current = true;
-        
-        // 【核心修正】呼叫戰鬥結算中心
-        const result = calculateCombatResult(p1, p2, gameState.currentLevel);
-
-        if (result.defended) {
-          // AI 成功防禦
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'defending'
-          }));
-          addEffect('defending', p2.position.x, p2.position.y);
-        } else {
-          // AI 被命中
-          setPlayer2(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'hit'
-          }));
-          // 命中後玩家增加能量
-          setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-          addEffect('hit', p2.position.x, p2.position.y);
+      if (result.defended) {
+        setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending' }));
+        addEffect('defending', p2.position.x, p2.position.y);
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
-
-        setTimeout(() => {
-          setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-        }, 500);
+      } else {
+        setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+        addEffect('hit', p2.position.x, p2.position.y);
+        
+        // 只播放撞擊聲和受傷聲
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
+        }
+        playSfxWithDucking(sfxMap[`enemy${gameState.currentLevel}Hurt`]);
       }
+
+      setTimeout(() => {
+        setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+      }, 500);
     }
   }
-}, [player1CurrentFrame, player2CurrentFrame]);
+}, [player1CurrentFrame]);
 
 useEffect(() => {
   const p1 = player1Ref.current;
@@ -1137,56 +1242,43 @@ useEffect(() => {
   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick', 'attacking'].includes(p2.state);
   
   if (
-    gameState.gamePhase === 'level-battle' &&
-    !gameState.isPaused &&
-    isPlayer2Attacking &&
-    !player2HitRegisteredRef.current &&
-    player1CollisionData &&
-    player2CollisionData
+    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer2Attacking &&
+    !player2HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p2HitBoxes = getAttackHitBox(p2, p2Frame, player2CollisionData);
-    const p1HurtBoxes = getHurtBox(p1, p1Frame, player1CollisionData);
+    const p1HurtBoxes = getHurtBox(p1, player1CurrentFrame, player1CollisionData);
 
-    if (p2HitBoxes.length > 0 && p1HurtBoxes.length > 0) {
-      const collisionDetected = p2HitBoxes.some(hitBox =>
-        p1HurtBoxes.some(hurtBox =>
-          isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)
-        )
-      );
+    if (p2HitBoxes.length > 0 && p1HurtBoxes.some(hurtBox => p2HitBoxes.some(hitBox => isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)))) { 
+      player2HitRegisteredRef.current = true;
+      
+      const result = calculateCombatResult(p2, p1, gameState.currentLevel);
+      const baseAttackType = getBaseAttackType(p2.state);
+      const lvl = gameState.currentLevel;
 
-      if (collisionDetected) { 
-        player2HitRegisteredRef.current = true;
-        
-        // 【核心修正】呼叫戰鬥結算中心
-        const result = calculateCombatResult(p2, p1, gameState.currentLevel);
-
-        if (result.defended) {
-          // 玩家成功防禦
-          setPlayer1(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'defending'
-          }));
-          addEffect('defending', p1.position.x, p1.position.y);
-        } else {
-          // 玩家被命中
-          setPlayer1(prev => ({ 
-            ...prev, 
-            health: Math.max(0, prev.health - result.damage),
-            state: 'hit'
-          }));
-          // 命中後 AI 增加能量
-          setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-          addEffect('hit', p1.position.x, p1.position.y);
+      if (result.defended) {
+        setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending' }));
+        addEffect('defending', p1.position.x, p1.position.y);
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
+      } else {
+        setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'hit' }));
+        setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
+        addEffect('hit', p1.position.x, p1.position.y);
 
-        setTimeout(() => {
-          setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-        }, 500);
+        // 只播放撞擊聲和受傷聲
+        if (baseAttackType) {
+          setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
+        }
+        playSfxWithDucking(sfxMap.playerHurt);
       }
+
+      setTimeout(() => {
+        setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
+      }, 500);
     }
   }
-}, [player1CurrentFrame, player2CurrentFrame]);
+}, [player2CurrentFrame]);
 
 // 【新增】這個 useEffect 用於處理起跳前的準備動作
 useEffect(() => {
@@ -1444,32 +1536,38 @@ function calculateCombatResult(
 
   // 在 handleBattleEnd 顯示提示
   const handleBattleEnd = () => {
-    // 【新增】立即改變遊戲階段，凍結所有動作
-    setGameState(prev => ({ ...prev, gamePhase: 'round-over' }));
-    let winner = '';
+    let result: 'win' | 'lose';
+    let winner: 'player1' | 'player2' | 'draw';
+
     if (player1.health > player2.health) {
       winner = 'player1';
-    } else {
+      result = 'win';
+    } else if (player2.health > player1.health) {
       winner = 'player2';
+      result = 'lose';
+    } else {
+      winner = 'draw';
+      result = 'lose'; // 平手也算輸
     }
+    
+    // 【核心修正】立即更新 gamePhase 和 lastResult，以觸發對應的音樂
+    setGameState(prev => ({ ...prev, gamePhase: 'round-over', lastResult: result }));
 
+    // 更新角色動畫
     setPlayer1(prev => ({ ...prev, state: winner === 'player1' ? 'victory' : 'dead' }));
     setPlayer2(prev => ({ ...prev, state: winner === 'player2' ? 'victory' : 'dead' }));
-    addEffect('ko', 400, 200);
+    
+    if (winner !== 'draw') {
+        addEffect('ko', 400, 200);
+    }
 
+    // 延遲顯示結果視窗，讓勝利/失敗音樂有時間播放
     setTimeout(() => {
-      if (winner === 'player1') {
-        setResultText('勝利！進入下一關');
-        setResultType('win');
-        setShowResultModal(true);
-      } else {
-        setResultText('失敗！再挑戰一次');
-        setResultType('lose');
-        setShowResultModal(true);
-      }
-    }, 800);
+      setResultText(result === 'win' ? '勝利！進入下一關' : '失敗！再挑戰一次');
+      setResultType(result);
+      setShowResultModal(true);
+    }, 1500);
   };
-
   // 新增這個 useEffect 來處理角色自動轉向
   useEffect(() => {
     // 根據 P1 和 P2 的相對位置來決定 P1 的朝向
@@ -1663,305 +1761,59 @@ function calculateCombatResult(
     }));
   };
 
-  // 1. Cover Screen
-  if (gameState.gamePhase === 'cover') {
-    return (
-      // 最外層容器， overflow-hidden 是為了隱藏超出範圍的元素
-      <div className="fixed inset-0 overflow-hidden">
-      {/* 底層：滿版背景 + 毛玻璃 */}
-      <div
-        className="
-        absolute inset-0 
-        bg-cover bg-center 
-        transform scale-105        /* 放大 5% 避免邊緣透出 */
-        filter blur-lg              /* 改成 blur-lg（中等強度） */
-      "
-      style={{
-        backgroundImage: `url('/statics/cover/cover_image.png')`
-      }}
-      />
+  // 【步驟二】貼上最終的音效函式
+  // 音效播放輔助函式 (BGM 自動閃避)
+  const playSfxWithDucking = (sfxObject: { audio: HTMLAudioElement; independentVolume: number; } | undefined) => {
+    if (!sfxObject) return;
 
-      {/* 上層：完整不裁切 */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <img
-          src="/statics/cover/cover_image.png"
-          alt="Cover"
-          className="max-w-full max-h-full object-contain"
-        />
-      </div>
-        {/* 底層：背景圖 + Ken Burns 效果 */}
-        <div
-          className="absolute inset-0 bg-contain bg-center bg-no-repeat animate-ken-burns" // 【修改後】
-          style={{ backgroundImage: `url('/statics/cover/cover_image.png')` }} // <-- 請換成您的啟動頁圖片路徑
-        />
+    const { audio, independentVolume } = sfxObject;
+    audio.volume = SFX_VOLUME * independentVolume; // 計算最終音量
 
-        {/* 中層：掃光特效 */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-          <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
-               style={{ animationDelay: '2s' }} // 延遲 2 秒開始
-          />
-        </div>
+    const bgm = audioRef.current;
+    if (!bgm || bgm.paused) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.error("SFX 播放失敗:", e));
+      return;
+    }
 
-        {/* 頂層：漂浮粒子特效 */}
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-orange-400 rounded-full animate-float-up"
-              style={{
-                left: `${Math.random() * 100}%`,
-                bottom: `-${Math.random() * 20}%`, // 從螢幕外開始
-                animationDelay: `${Math.random() * 10}s`,
-                animationDuration: `${5 + Math.random() * 10}s`,
-                opacity: 0,
-              }}
-            />
-          ))}
-        </div>
+    const originalVolume = bgm.volume;
+    bgm.volume = originalVolume * 0.8;
+    audio.currentTime = 0;
+    audio.play().catch(e => console.error("SFX 播放失敗:", e));
 
-        {/* UI 層：標題與提示文字 */}
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <p 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl text-white animate-pulse drop-shadow-md"
-          >
-            按任意鍵開始
-          </p>
-        </div>
-      </div>
-    );
-  }
+    const onSfxEnded = () => {
+      let currentVolume = bgm.volume;
+      const fadeInterval = setInterval(() => {
+        currentVolume = Math.min(currentVolume + 0.05, originalVolume);
+        bgm.volume = currentVolume;
+        if (currentVolume >= originalVolume) {
+          clearInterval(fadeInterval);
+        }
+      }, 80);
+      audio.removeEventListener('ended', onSfxEnded);
+    };
+    audio.addEventListener('ended', onSfxEnded);
+  };
 
-  // 2. Opening Animation
-  // if (gameState.gamePhase === 'opening-animation') {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden">
-  //       <div className="text-center z-10">
-  //         <div className="text-4xl text-white mb-8 animate-fade-in">
-  //           {OPENING_SCENES[openingStep]}
-  //         </div>
-  //         <div className="w-64 h-2 bg-gray-700 rounded-full mx-auto">
-  //           <div 
-  //             className="h-full bg-gradient-to-r from-red-500 to-yellow-500 rounded-full transition-all duration-300"
-  //             style={{ width: `${((openingStep + 1) / OPENING_SCENES.length) * 100}%` }}
-  //           />
-  //         </div>
-  //       </div>
-        
-  //       {/* Cinematic bars */}
-  //       <div className="absolute top-0 left-0 right-0 h-16 bg-black z-20"></div>
-  //       <div className="absolute bottom-0 left-0 right-0 h-16 bg-black z-20"></div>
-  //     </div>
-  //   );
-  // }
+  // 從角色狀態中提取基礎攻擊類型 (例如從 'jump_punch' 提取 'Punch')
+  const getBaseAttackType = (state: Character['state']): 'Punch' | 'Kick' | 'Special' | null => {
+    if (state.includes('punch')) return 'Punch';
+    if (state.includes('kick')) return 'Kick';
+    if (state.includes('special')) return 'Special';
+    return null;
+  };
 
-  // 3. Character Setup
-  if (gameState.gamePhase === 'character-setup') {
-    return (
-      <div
-        className="fixed inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/statics/cover/character_setup.png')" }}
-      >
-        {isStoryVideoPlaying ? (
-          // --- 狀態二：正在播放影片 ---
-          <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
-            <video
-              ref={storyVideoRef}
-              className="absolute inset-0 w-full h-full object-contain"
-              onEnded={() => {
-                storyVideoRef.current?.pause();
-                setIsVideoEnded(true);
-                if (isPhotoReady) {
-                  setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
-                }
-              }}
-            >
-              <source src="/statics/videos/story.mp4" type="video/mp4" />
-              您的瀏覽器不支援影片播放。
-            </video>
-            {/* 置頂提示文字 */}
-            <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
-              {uploadLoading
-                ? "英雄正在生成… (圖片處理中)"
-                : !isPhotoReady
-                  ? "英雄即將生成，準備進入戰場"
-                  : "英雄已生成，準備進入戰鬥…"
-              }
-            </p>
-          </div>
-        ) : (
-          // --- 狀態一：上傳介面 / 等待介面 / 錯誤介面 ---
-      
-          <div
-              // 使用絕對定位將選單框精準定位在畫面的右側區域
-            className="absolute top-1/2 left-3/4 -translate-x-1/2 -translate-y-1/2"
-            >
-              {/* 選單框 (使用背景圖實現，並作為內部元素的定位基準) */}
-              <div 
-                className="relative w-[500px] h-[700px] bg-contain bg-no-repeat bg-center"
-                style={{ backgroundImage: `url('/statics/cover/ui_frame.png')` }}
-              >
-  
-              <h2 className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold text-white drop-shadow-lg">
-                英雄登入
-              </h2>
-  
-              {/* 頭像預覽區 */}
-              <div 
-                // 【修改後】我們保留了絕對定位，但移除了所有裝飾性 class
-                className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 flex items-center justify-center overflow-hidden"
-              >
-                {gameState.playerPhoto ? (
-                  // 當有照片時，直接顯示圖片
-                  <img 
-                    src={gameState.playerPhoto} 
-                    alt="Avatar Preview" 
-                    className="w-full h-full object-cover" // object-cover 確保圖片填滿容器且不變形
-                  />
-                ) : (
-                  // 沒有照片時，顯示一個中性的上傳圖示
-                  <Upload size={48} className="text-gray-500" />
-                )}
-              </div>
-            </div>
-  
-            {/* 隱藏的檔案輸入框 */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoUpload}
-            />
-  
-            {/* 按鈕與提示文字的容器 (相對於選單框絕對定位) */}
-            <div
-                className="absolute top-[75%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-20 text-center"
-              >
-                {uploadError ? (
-                  <div>
-                    <p className='text-red-400 mb-4'>上傳失敗：{uploadError}</p>
-                    <Button onClick={() => {
-                      setUploadError(null);
-                      setGameState(prev => ({...prev, playerPhoto: null}));
-                    }} variant="destructive">
-                      再試一次
-                    </Button>
-                  </div>
-                ) : (
-                  <Button 
-                    onClick={() => fileInputRef.current?.click()} 
-                    disabled={uploadLoading}
-                    className="bg-cyan-500 hover:bg-cyan-600 text-white text-lg px-8 py-4 w-full shadow-lg"
-                  >
-                    {uploadLoading ? "處理中..." : "請上傳大頭照"}
-                  </Button>
-                )}
-                
-                {/* 如果影片已播完，但照片還在處理，顯示等待提示 */}
-                {isVideoEnded && !isPhotoReady && !uploadError && (
-                  <div className="mt-4">
-                    <p className="animate-pulse text-cyan-300">等待照片處理完成...</p>
-                </div>
-              )}
-            </div>
-        </div>
-    )}
-  </div>
-);
-}
-
-// 4. VS Screen
-if (gameState.gamePhase === 'vs-screen') {
-  return (
-    <div
-      className="fixed inset-0 bg-center bg-contain"
-      style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}
-    >
-      {/* 掃光特效 */}
-      <div className="absolute inset-0 overflow-hidden">
-       <div className="absolute w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-      </div>
-    </div>
-  );
-  }
-  // 6. Ending Animation
-  if (gameState.gamePhase === 'ending-animation') {
-    // 根據 taskId 組合勝利圖片的 URL
-    const victoryImageUrl = gameState.taskId 
-        ? `https://storage.googleapis.com/vibe_coding_bucket/results/${gameState.taskId}/2.png`
-        : '/statics/cover/cover_image.png'; // 提供一個備用圖片
-
-    return (
-        <div className="fixed inset-0 overflow-hidden bg-black">
-            {/* 背景圖：完整顯示不裁切 */}
-            <div
-                className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                style={{ 
-                    backgroundImage: `url(${victoryImageUrl})`,
-                    // 添加一個柔和的放大動畫
-                    animation: 'scale-in-slow 20s forwards'
-                }}
-            />
-
-            {/* 漂浮粒子特效 */}
-            <div className="absolute inset-0 pointer-events-none">
-                {[...Array(30)].map((_, i) => (
-                    <div
-                        key={i}
-                        className="absolute w-1.5 h-1.5 bg-yellow-300 rounded-full animate-float-up"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            bottom: `-${Math.random() * 20}%`,
-                            animationDelay: `${Math.random() * 15}s`,
-                            animationDuration: `${8 + Math.random() * 12}s`,
-                            opacity: 0,
-                        }}
-                    />
-                ))}
-            </div>
-
-            {/* 內容疊加層：放置在畫面左側垂直置中 */}
-            <div className="absolute top-1/2 left-0 transform -translate-y-1/2 z-10 p-12 w-full md:w-1/2 lg:w-1/3 bg-gradient-to-r from-black/90 via-black/70 to-transparent">
-                <div className="text-left text-white">
-                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-yellow-300 drop-shadow-lg animate-fade-in" style={{ animationDelay: '0.5s' }}>
-                        光明重新照耀城市
-                    </h1>
-                    <p className="text-xl md:text-2xl mb-8 drop-shadow animate-fade-in" style={{ animationDelay: '1s' }}>
-                        你成功擊敗了所有邪惡的敵人，讓這座城市再次恢復和平
-                    </p>
-                    <Button
-                        onClick={() => setGameState({
-                            timeLeft: 60,
-                            currentLevel: 1,
-                            gamePhase: 'cover', // 點擊後回到啟動頁
-                            isPaused: false,
-                            playerPhoto: null,
-                            lastResult: null,
-                            taskId: undefined,
-                        })}
-                        className="text-xl px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 animate-fade-in"
-                        style={{ animationDelay: '1.5s' }}
-                    >
-                        <RotateCcw className="mr-2 h-5 w-5" />
-                        重新開始遊戲
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
-  }
-
-
-  // 6. Level Battle
+  // 需要在 return 外部定義這些變數
+  const victoryImageUrl = gameState.taskId 
+    ? `https://storage.googleapis.com/vibe_coding_bucket/results/${gameState.taskId}/2.png`
+    : '/statics/cover/cover_image.png';
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
-  
-  // 工具函數：將局部 box 轉為全局座標，正確處理 facing
   const renderBoxes = (boxes: Box[], characterId: string, boxType: 'hit' | 'hurt') => {
-      const borderColor = boxType === 'hit' ? 'red' : 'blue';
+    const borderColor = boxType === 'hit' ? 'red' : 'blue';
     return boxes.map((box, index) => {
       return (
         <div
-          key={`${boxType}-box-${characterId}-${index}`} // <-- 使用傳入的 characterId
+          key={`${boxType}-box-${characterId}-${index}`}
           style={{
             position: 'absolute',
             left: `${box.x}px`,
@@ -1978,265 +1830,519 @@ if (gameState.gamePhase === 'vs-screen') {
     });
   };
 
+  const handleUploadClick = () => {
+    playSfxWithDucking(sfxMap.uiClick2);
+    fileInputRef.current?.click();
+  };
+
+  const handleRestartGame = () => {
+    playSfxWithDucking(sfxMap.uiClick3);
+    setGameState({
+      timeLeft: 60,
+      currentLevel: 1,
+      gamePhase: 'cover',
+      isPaused: false,
+      playerPhoto: null,
+      lastResult: null,
+      taskId: undefined,
+    });
+  };
+
+  // 將所有 return 合併為一個
   return (
-   // 1. 最外層的黑色背景容器 (置中用)
-   <div className="w-screen h-screen bg-black relative overflow-hidden flex items-center justify-center">
-    {/* 【新增這段 Audio 元素】它沒有畫面，放在哪裡都可以 */}
-    <audio ref={audioRef} loop />
-    {/* 2. 內層的遊戲畫布 (縮放用) */}
-    <div 
-    className="relative overflow-hidden"
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: `${GAME_WIDTH}px`,
-        height: `${GAME_HEIGHT}px`,
-        transform: `translate(-50%, -50%) scale(${gameScale})`,
-        transformOrigin: 'center center',
-        background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)', // 【修正】CSS 拼寫錯誤
-      }}
-    >
-      {/* 3. 格鬥遊戲舞台 */}
-      <div 
-        className="absolute" // 不再需要 inset-0 和 overflow-hidden
-        style={{
-          width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`, 
-          height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
-          left: `-${cameraX}px`,
-          top: 0,
-        }}
-      >
-      {/* 4. 舞台背景 */}
-      <div 
-          className="absolute"
-          style={{
-            backgroundImage: `url(${currentLevelData.bgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center bottom',
-            backgroundRepeat: 'no-repeat',
-            width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
-            height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
-            left: 0,
-            top: `${Math.max(0, GAME_HEIGHT - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
-          }}
-        />
-      {/* 5. 角色容器 */}
-      <div className="absolute inset-0">
-        {/* Player 1 */}
-      <div 
-        className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player1.position.x, 
-            bottom: `${player1.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none'
-          }}
-        >
-          <AnimationPlayer
-            source={getAnimationSource(player1.state)}
-            facing={player1.facing}
-            state={player1.state}
-            setPlayer={setPlayer1}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={true}
-            onFrameChange={setPlayer1CurrentFrame}
-            onComplete={handleP1AnimationComplete}
-          />
-      </div>
-      {/* Player 2 (AI) */}
-      <div 
-        className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
-          style={{ 
-            left: player2.position.x, 
-            bottom: `${player2.position.y}px`,
-            width: CHARACTER_WIDTH,
-            height: CHARACTER_HEIGHT,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none'
-          }}
-        >
-          <AnimationPlayer
-            source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
-            facing={player2.facing}
-            state={player2.state}
-            width={CHARACTER_WIDTH}
-            height={CHARACTER_HEIGHT}
-            isPlayer1={false}
-            onFrameChange={setPlayer2CurrentFrame}
-            setPlayer={setPlayer2}
-            onComplete={handleP2AnimationComplete}
-          />
-        </div>
-      {/* Debug hit/hurt boxes */}
-        {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
-        {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
-        {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
-        {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
+    <>
+      <audio ref={audioRef} loop />
 
-      {/* Effects */}
-      {effects.map(effect => (
+      {gameState.gamePhase === 'cover' && (
+        // 最外層容器， overflow-hidden 是為了隱藏超出範圍的元素
+        <div className="fixed inset-0 overflow-hidden">
+          {/* 底層：滿版背景 + 毛玻璃 */}
           <div
-            key={effect.id}
-            className="absolute pointer-events-none"
-            style={{ 
-              left: effect.x, 
-              bottom: `${effect.y}px`
-            }}
-          >
-            {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
-            {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
-            {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
-            {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
-            {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-            {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-            {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
-          </div>
-        ))}
-        </div>
-      </div>
-      {/* Level Battle UI */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-4">
-        {/* 玩家頭像 */}
-        {/* <div className="absolute top-4 left-4 w-12 h-12 rounded-full border-2 border-white overflow-hidden z-20">
-          {gameState.playerPhoto ? (
-            <img src={gameState.playerPhoto} alt="Hero Avatar" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-white text-lg">😊</div>
-          )}
-        </div> */}
-        
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
-              variant="outline"
-              size="sm"
-            >
-              {gameState.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </Button>
-            <div className="text-white font-bold text-lg">
-              {currentLevelData?.name}
-            </div>
-            <div className="text-white font-bold">第 {gameState.currentLevel} 關</div>
-          </div>
-        </div>
+            className="
+            absolute inset-0 
+            bg-cover bg-center 
+            transform scale-105        /* 放大 5% 避免邊緣透出 */
+            filter blur-lg              /* 改成 blur-lg（中等強度） */
+          "
+          style={{
+            backgroundImage: `url('/statics/cover/cover_image.png')`
+          }}
+          />
 
-        {/* Health bars */}
-        <div className="flex justify-between items-center mb-2">
-          {/* 玩家血條與頭像 */}
-          <div className="w-1/3 flex items-center space-x-2">
-            <div className="w-28 h-28 flex-shrink-0">
-              {gameState.playerPhoto ? (
-                <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
-              )}
-            </div>
-            <div className="flex-1">
-              <div className="text-white font-bold mb-1">玩家</div>
-              <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
-                  style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
-                />
-              </div>
-              <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
-                <div
-                  className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
-                  style={{ width: `${(player1.energy / player1.maxEnergy) * 100}%` }}
-                />
-            </div>
+          {/* 上層：完整不裁切 */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <img
+              src="/statics/cover/cover_image.png"
+              alt="Cover"
+              className="max-w-full max-h-full object-contain"
+            />
           </div>
-          </div>
-          {/* 倒數計時器 */}
-          <div className="w-1/3 flex items-center justify-center">
-            <div className="text-3xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
-              {gameState.timeLeft}
-            </div>
-          </div>
-          {/* AI血條與頭像 */}
-          <div className="w-1/3 flex items-center space-x-2 justify-end">
-            <div className="flex-1 text-right">
-              <div className="text-white font-bold mb-1">AI</div>
-              <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
-                  style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
-                />
-              </div>
-              <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
-                <div
-                  className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
-                  style={{ width: `${(player2.energy / player2.maxEnergy) * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="w-28 h-28 flex-shrink-0 ml-2">
-              <img
-                src={
-                  gameState.currentLevel === 1
-                    ? '/statics/Avatars/Avatar_Enemy01.png'
-                    : gameState.currentLevel === 2
-                    ? '/statics/Avatars/Avatar_Enemy02.png'
-                    : '/statics/Avatars/Avatar_Enemy03.png'
-                }
-                alt="AI"
-                className="w-full h-full object-contain"
+            {/* 底層：背景圖 + Ken Burns 效果 */}
+            <div
+              className="absolute inset-0 bg-contain bg-center bg-no-repeat animate-ken-burns" // 【修改後】
+              style={{ backgroundImage: `url('/statics/cover/cover_image.png')` }} // <-- 請換成您的啟動頁圖片路徑
+            />
+
+            {/* 中層：掃光特效 */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+              <div className="absolute top-0 left-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+                   style={{ animationDelay: '2s' }} // 延遲 2 秒開始
               />
             </div>
-          </div>
-        </div>
-      </div>
 
-         {/* Controls */}
-      <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
-        <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
-          <span>A：向左</span>
-          <span>D：向右</span>
-          <span>W：跳躍</span>
-          <span>S：蹲下</span>
-          <span>J：拳</span>
-          <span>K：腳</span>
-          <span>L：必殺技</span>
-        </div>
-      </div>
+            {/* 頂層：漂浮粒子特效 */}
+            <div className="absolute inset-0 pointer-events-none">
+              {[...Array(20)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-1 h-1 bg-orange-400 rounded-full animate-float-up"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    bottom: `-${Math.random() * 20}%`, // 從螢幕外開始
+                    animationDelay: `${Math.random() * 10}s`,
+                    animationDuration: `${5 + Math.random() * 10}s`,
+                    opacity: 0,
+                  }}
+                />
+              ))}
+            </div>
 
-      {gameState.isPaused && gameState.gamePhase === 'level-battle' && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-          <Card className="p-8 text-center bg-black/80 border-white">
-            <h2 className="text-4xl font-bold text-white mb-4">遊戲暫停</h2>
-            <Button 
-              onClick={() => setGameState(prev => ({ ...prev, isPaused: false }))}
-              className="text-xl px-6 py-3"
-            >
-              繼續遊戲
-            </Button>
-          </Card>
+            {/* UI 層：標題與提示文字 */}
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <p 
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl text-white animate-pulse drop-shadow-md"
+              >
+                按任意鍵開始
+              </p>
+            </div>
         </div>
       )}
-     {showResultModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-0">
-          <div className="bg-white rounded-lg shadow-lg p-10 text-center">
-            <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
-            <button
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
-              onClick={handleResultModalClose}
+      {gameState.gamePhase === 'character-setup' && (
+        <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/statics/cover/character_setup.png')" }}>
+          {isStoryVideoPlaying ? (
+            // --- 狀態二：正在播放影片 ---
+            <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
+              <video
+                ref={storyVideoRef}
+                className="absolute inset-0 w-full h-full object-contain"
+                onEnded={() => {
+                  storyVideoRef.current?.pause();
+                  setIsVideoEnded(true);
+                  setIsStoryVideoPlaying(false);       // ← 新增這行，重設旗標，讓 BGM 得以恢復播放
+                  if (isPhotoReady) {
+                    setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+                  }
+                }}
+              >
+                <source src="/statics/videos/story.mp4" type="video/mp4" />
+                您的瀏覽器不支援影片播放。
+              </video>
+              {/* 置頂提示文字 */}
+              <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
+                {uploadLoading
+                  ? "英雄正在生成… (圖片處理中)"
+                  : !isPhotoReady
+                    ? "英雄即將生成，準備進入戰場"
+                    : "英雄已生成，準備進入戰鬥…"
+                }
+              </p>
+            </div>
+          ) : (
+            // --- 狀態一：上傳介面 / 等待介面 / 錯誤介面 ---
+        
+            <div
+                // 使用絕對定位將選單框精準定位在畫面的右側區域
+              className="absolute top-1/2 left-3/4 -translate-x-1/2 -translate-y-1/2"
+              >
+                {/* 選單框 (使用背景圖實現，並作為內部元素的定位基準) */}
+                <div 
+                  className="relative w-[500px] h-[700px] bg-contain bg-no-repeat bg-center"
+                  style={{ backgroundImage: `url('/statics/cover/ui_frame.png')` }}
+                >
+    
+                <h2 className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold text-white drop-shadow-lg">
+                  英雄登入
+                </h2>
+    
+                {/* 頭像預覽區 */}
+                <div 
+                  // 【修改後】我們保留了絕對定位，但移除了所有裝飾性 class
+                  className="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 flex items-center justify-center overflow-hidden"
+                >
+                  {gameState.playerPhoto ? (
+                    // 當有照片時，直接顯示圖片
+                    <img 
+                      src={gameState.playerPhoto} 
+                      alt="Avatar Preview" 
+                      className="w-full h-full object-cover" // object-cover 確保圖片填滿容器且不變形
+                    />
+                  ) : (
+                    // 沒有照片時，顯示一個中性的上傳圖示
+                    <Upload size={48} className="text-gray-500" />
+                  )}
+                </div>
+              </div>
+    
+              {/* 隱藏的檔案輸入框 */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+    
+              {/* 按鈕與提示文字的容器 (相對於選單框絕對定位) */}
+              <div
+                  className="absolute top-[75%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-20 text-center"
+                >
+                {uploadError ? (
+                  <div>
+                    <p className='text-red-400 mb-4'>上傳失敗：{uploadError}</p>
+                    <Button onClick={() => {
+                      setUploadError(null);
+                      setGameState(prev => ({...prev, playerPhoto: null}));
+                    }} variant="destructive">
+                      再試一次
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={handleUploadClick}
+                    disabled={uploadLoading}
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white text-lg px-8 py-4 w-full shadow-lg"
+                  >
+                    {uploadLoading ? "處理中..." : "請上傳大頭照"}
+                  </Button>
+                )}
+                
+                {/* 如果影片已播完，但照片還在處理，顯示等待提示 */}
+                {isVideoEnded && !isPhotoReady && !uploadError && (
+                  <div className="mt-4">
+                    <p className="animate-pulse text-cyan-300">等待照片處理完成...</p>
+                </div>
+              )}
+            </div>
+        </div>
+    )}
+    </div>
+  )}
+  {gameState.gamePhase === 'vs-screen' && (
+    <div className="fixed inset-0 bg-center bg-contain" style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}>
+      {/* 掃光特效 */}
+      <div className="absolute inset-0 overflow-hidden">
+       <div className="absolute w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+      </div>
+    </div>
+  )}
+  {gameState.gamePhase === 'ending-animation' && (
+    <div className="fixed inset-0 overflow-hidden bg-black">
+      {/* 背景圖：完整顯示不裁切 */}
+      <div
+          className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+          style={{ 
+              backgroundImage: `url(${victoryImageUrl})`,
+              // 添加一個柔和的放大動畫
+              animation: 'scale-in-slow 20s forwards'
+          }}
+      />
+
+      {/* 漂浮粒子特效 */}
+      <div className="absolute inset-0 pointer-events-none">
+          {[...Array(30)].map((_, i) => (
+              <div
+                  key={i}
+                  className="absolute w-1.5 h-1.5 bg-yellow-300 rounded-full animate-float-up"
+                  style={{
+                      left: `${Math.random() * 100}%`,
+                      bottom: `-${Math.random() * 20}%`,
+                      animationDelay: `${Math.random() * 15}s`,
+                      animationDuration: `${8 + Math.random() * 12}s`,
+                      opacity: 0,
+                  }}
+              />
+          ))}
+      </div>
+
+      {/* 內容疊加層：放置在畫面左側垂直置中 */}
+      <div className="absolute top-1/2 left-0 transform -translate-y-1/2 z-10 p-12 w-full md:w-1/2 lg:w-1/3 bg-gradient-to-r from-black/90 via-black/70 to-transparent">
+          <div className="text-left text-white">
+              <h1 className="text-5xl md:text-6xl font-bold mb-4 text-yellow-300 drop-shadow-lg animate-fade-in" style={{ animationDelay: '0.5s' }}>
+                  光明重新照耀城市
+              </h1>
+              <p className="text-xl md:text-2xl mb-8 drop-shadow animate-fade-in" style={{ animationDelay: '1s' }}>
+                  你成功擊敗了所有邪惡的敵人，讓這座城市再次恢復和平
+              </p>
+              <Button
+                  onClick={handleRestartGame}
+                  className="text-xl px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 animate-fade-in"
+                  style={{ animationDelay: '1.5s' }}
+              >
+                  <RotateCcw className="mr-2 h-5 w-5" />
+                  重新開始遊戲
+              </Button>
+          </div>
+      </div>
+    </div>
+  )}
+  {['level-battle', 'round-over'].includes(gameState.gamePhase) && (
+    <div className="w-screen h-screen bg-black relative overflow-hidden flex items-center justify-center">
+      {/* 2. 內層的遊戲畫布 (縮放用) */}
+      <div 
+      className="relative overflow-hidden"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: `${GAME_WIDTH}px`,
+          height: `${GAME_HEIGHT}px`,
+          transform: `translate(-50%, -50%) scale(${gameScale})`,
+          transformOrigin: 'center center',
+          background: currentLevelData?.bg || 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)', // 【修正】CSS 拼寫錯誤
+        }}
+      >
+        {/* 3. 格鬥遊戲舞台 */}
+        <div 
+          className="absolute" // 不再需要 inset-0 和 overflow-hidden
+          style={{
+            width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`, 
+            height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+            left: `-${cameraX}px`,
+            top: 0,
+          }}
+        >
+        {/* 4. 舞台背景 */}
+        <div 
+            className="absolute"
+            style={{
+              backgroundImage: `url(${currentLevelData.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center bottom',
+              backgroundRepeat: 'no-repeat',
+              width: `${FIGHTING_STAGE_CONSTANTS.backgroundWidth}px`,
+              height: `${FIGHTING_STAGE_CONSTANTS.backgroundHeight}px`,
+              left: 0,
+              top: `${Math.max(0, GAME_HEIGHT - FIGHTING_STAGE_CONSTANTS.backgroundHeight)}px`
+            }}
+          />
+        {/* 5. 角色容器 */}
+        <div className="absolute inset-0">
+          {/* Player 1 */}
+        <div 
+          className={`absolute ${player1.state === 'special' ? 'animate-pulse' : ''}`}
+            style={{ 
+              left: player1.position.x, 
+              bottom: `${player1.position.y}px`,
+              width: CHARACTER_WIDTH,
+              height: CHARACTER_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none'
+            }}
+          >
+            <AnimationPlayer
+              source={getAnimationSource(player1.state)}
+              facing={player1.facing}
+              state={player1.state}
+              setPlayer={setPlayer1}
+              width={CHARACTER_WIDTH}
+              height={CHARACTER_HEIGHT}
+              isPlayer1={true}
+              onFrameChange={setPlayer1CurrentFrame}
+              onComplete={handleP1AnimationComplete}
+            />
+        </div>
+        {/* Player 2 (AI) */}
+        <div 
+          className={`absolute ${player2.state === 'special' ? 'animate-pulse' : ''}`}
+            style={{ 
+              left: player2.position.x, 
+              bottom: `${player2.position.y}px`,
+              width: CHARACTER_WIDTH,
+              height: CHARACTER_HEIGHT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none'
+            }}
+          >
+            <AnimationPlayer
+              source={getEnemyAnimationSource(player2.state, gameState.currentLevel)}
+              facing={player2.facing}
+              state={player2.state}
+              width={CHARACTER_WIDTH}
+              height={CHARACTER_HEIGHT}
+              isPlayer1={false}
+              onFrameChange={setPlayer2CurrentFrame}
+              setPlayer={setPlayer2}
+              onComplete={handleP2AnimationComplete}
+            />
+          </div>
+        {/* Debug hit/hurt boxes */}
+          {renderBoxes(getHurtBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hurt')}
+          {renderBoxes(getAttackHitBox(player1, player1CurrentFrame, player1CollisionData), 'player1', 'hit')}
+          {renderBoxes(getHurtBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hurt')}
+          {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
+
+        {/* Effects */}
+        {effects.map(effect => (
+            <div
+              key={effect.id}
+              className="absolute pointer-events-none"
+              style={{ 
+                left: effect.x, 
+                bottom: `${effect.y}px`
+              }}
             >
-              {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
-            </button>
+              {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
+              {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
+              {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
+              {effect.type === 'ko' && <div className="text-8xl font-bold text-red-600 animate-bounce">K.O.</div>}
+              {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+              {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
+              {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
+            </div>
+          ))}
           </div>
         </div>
-      )}
+        {/* Level Battle UI */}
+        <div className="absolute top-0 left-0 right-0 z-10 p-4">
+          {/* 玩家頭像 */}
+          {/* <div className="absolute top-4 left-4 w-12 h-12 rounded-full border-2 border-white overflow-hidden z-20">
+            {gameState.playerPhoto ? (
+              <img src={gameState.playerPhoto} alt="Hero Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white text-lg">😊</div>
+            )}
+          </div> */}
+          
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center space-x-4">
+              <Button
+                onClick={() => setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))}
+                variant="outline"
+                size="sm"
+              >
+                {gameState.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </Button>
+              <div className="text-white font-bold text-lg">
+                {currentLevelData?.name}
+              </div>
+              <div className="text-white font-bold">第 {gameState.currentLevel} 關</div>
+            </div>
+          </div>
+
+          {/* Health bars */}
+          <div className="flex justify-between items-center mb-2">
+            {/* 玩家血條與頭像 */}
+            <div className="w-1/3 flex items-center space-x-2">
+              <div className="w-28 h-28 flex-shrink-0">
+                {gameState.playerPhoto ? (
+                  <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white text-3xl">😊</div>
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="text-white font-bold mb-1">玩家</div>
+                <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
+                    style={{ width: `${(player1.health / player1.maxHealth) * 100}%` }}
+                  />
+                </div>
+                <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
+                    style={{ width: `${(player1.energy / player1.maxEnergy) * 100}%` }}
+                  />
+              </div>
+            </div>
+            </div>
+            {/* 倒數計時器 */}
+            <div className="w-1/3 flex items-center justify-center">
+              <div className="text-3xl font-extrabold text-white bg-black/70 px-6 py-1 rounded-lg shadow border-2 border-yellow-400">
+                {gameState.timeLeft}
+              </div>
+            </div>
+            {/* AI血條與頭像 */}
+            <div className="w-1/3 flex items-center space-x-2 justify-end">
+              <div className="flex-1 text-right">
+                <div className="text-white font-bold mb-1">AI</div>
+                <div className="relative h-6 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-red-600 rounded-full transition-all duration-500"
+                    style={{ width: `${(player2.health / player2.maxHealth) * 100}%` }}
+                  />
+                </div>
+                <div className="relative h-2 mt-1 bg-yellow-500 rounded-full overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-yellow-600 rounded-full transition-all duration-500"
+                    style={{ width: `${(player2.energy / player2.maxEnergy) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="w-28 h-28 flex-shrink-0 ml-2">
+                <img
+                  src={
+                    gameState.currentLevel === 1
+                      ? '/statics/Avatars/Avatar_Enemy01.png'
+                      : gameState.currentLevel === 2
+                      ? '/statics/Avatars/Avatar_Enemy02.png'
+                      : '/statics/Avatars/Avatar_Enemy03.png'
+                  }
+                  alt="AI"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+             {/* Controls */}
+        <div className="absolute bottom-4 left-0 right-0 z-10 flex justify-center">
+          <div className="bg-black/80 rounded-lg px-6 py-2 flex flex-wrap gap-4 text-white text-base font-semibold shadow-lg">
+            <span>A：向左</span>
+            <span>D：向右</span>
+            <span>W：跳躍</span>
+            <span>S：蹲下</span>
+            <span>J：拳</span>
+            <span>K：腳</span>
+            <span>L：必殺技</span>
+          </div>
+        </div>
+
+        {gameState.isPaused && gameState.gamePhase === 'level-battle' && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+            <Card className="p-8 text-center bg-black/80 border-white">
+              <h2 className="text-4xl font-bold text-white mb-4">遊戲暫停</h2>
+              <Button 
+                onClick={() => setGameState(prev => ({ ...prev, isPaused: false }))}
+                className="text-xl px-6 py-3"
+              >
+                繼續遊戲
+              </Button>
+            </Card>
+          </div>
+        )}
+       {showResultModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-0">
+            <div className="bg-white rounded-lg shadow-lg p-10 text-center">
+              <h2 className="text-4xl font-bold mb-6 text-gray-900">{resultText}</h2>
+              <button
+                className="px-8 py-3 bg-blue-600 text-white rounded-lg text-2xl font-bold hover:bg-blue-700 transition"
+                onClick={handleResultModalClose}
+              >
+                {resultType === 'win' ? (gameState.currentLevel === 3 ? '觀看結局' : '下一關') : '再挑戰'}
+              </button>
+            </div>
+          </div>
+        )}
     </div>
   </div>
+  )}
+  </>
 );
 };
 
