@@ -353,13 +353,6 @@ const LEVELS = [
   }
 ];
 
-// const OPENING_SCENES = [
-//   '夜晚的城市被黑暗籠罩...',
-//   '罪惡在街頭蔓延...',
-//   '只有一位英雄能拯救這座城市...',
-//   '你就是那位英雄！'
-// ];
-
 // isFacingOpponent 判斷
 function isFacingOpponent(p1: Character, p2: Character) {
   return (
@@ -777,7 +770,7 @@ const FightingGame: React.FC = () => {
     };
   
     // 影片播放時，優先暫停音樂
-    if (isStoryVideoPlaying) {
+    if (isStoryVideoPlaying && !isVideoEnded) {
       stopMusic();
       return;
     }
@@ -949,7 +942,7 @@ useEffect(() => {
     if (gameState.timeLeft === 0 || player1.health <= 0 || player2.health <= 0) {
       handleBattleEnd();
     }
-  }, [gameState.timeLeft, player1.health, player2.health]);
+  }, [gameState.gamePhase, gameState.isPaused, gameState.timeLeft, player1.health, player2.health]);
 
   // 【新增】這個 useEffect 專門用來同步按鍵狀態到 Ref
   useEffect(() => {
@@ -1630,30 +1623,28 @@ function calculateCombatResult(
 
   // 處理 Modal 按鈕
   const handleResultModalClose = () => {
+    audioRef.current?.pause();
     setShowResultModal(false);
+
     if (resultType === 'win') {
-      setWinStreak(s => s + 1); // 連勝+1
-      // 【修改後】只判斷關卡數是否為 3
+      setWinStreak(s => s + 1);
       if (gameState.currentLevel === 3) {
-        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation', lastResult: 'win', isPaused: false }));
+        setGameState(prev => ({ ...prev, gamePhase: 'ending-animation' }));
       } else {
+        // 勝利後，進入下一關的 VS 畫面
         setGameState(prev => ({
           ...prev,
           currentLevel: prev.currentLevel + 1,
-          timeLeft: 60,
           gamePhase: 'vs-screen',
-          lastResult: 'win',
-          isPaused: false
         }));
         resetPlayersForNewBattle();
       }
     } else {
-      setWinStreak(0); // 失敗歸零
+      setWinStreak(0);
+      // 【修正點】失敗後，重新進入本關的戰前動畫
       setGameState(prev => ({
         ...prev,
-        timeLeft: 60,
-        gamePhase: 'level-battle',
-        lastResult: 'lose'
+        gamePhase: 'pre-battle-sequence',
       }));
       resetPlayersForNewBattle();
     }
@@ -1686,12 +1677,14 @@ function calculateCombatResult(
   // };
 
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [showWaitingText, setShowWaitingText] = useState(false); // 【步驟一】在這裡新增 state
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
   
     // 1. 清除舊的錯誤狀態
+    setShowWaitingText(false);
     setUploadError(null);
   
     // 2. 立刻在畫面上顯示本地預覽
@@ -1963,26 +1956,34 @@ function calculateCombatResult(
       )}
       {gameState.gamePhase === 'character-setup' && (
         <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/statics/cover/character_setup.png')" }}>
-          {isStoryVideoPlaying ? (
-            // --- 狀態二：正在播放影片 ---
-            <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
-              <video
-                ref={storyVideoRef}
-                className="absolute inset-0 w-full h-full object-contain"
-                onEnded={() => {
-                  storyVideoRef.current?.pause();
-                  setIsVideoEnded(true);
-                  setIsStoryVideoPlaying(false);       // ← 新增這行，重設旗標，讓 BGM 得以恢復播放
-                  if (isPhotoReady) {
-                    setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+        {isStoryVideoPlaying || (isVideoEnded && !isPhotoReady) ? ( // 【修正點1】只要影片在播，或已播完且照片未就緒，就保持此畫面
+          // --- 狀態二：正在播放/等待影片 ---
+          <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
+            <video
+              ref={storyVideoRef}
+              className="absolute inset-0 w-full h-full object-contain"
+              onEnded={() => {
+                // 【修正點2】影片結束時，只設定 isVideoEnded，畫面就會停在最後一幀
+                setIsVideoEnded(true);
+              }}
+              onTimeUpdate={() => {
+                // 【修正點3】監聽影片時間，在最後 5 秒時顯示文字
+                if (storyVideoRef.current) {
+                  const { currentTime, duration } = storyVideoRef.current;
+                  if (duration > 5 && duration - currentTime <= 5) {
+                    setShowWaitingText(true);
                   }
-                }}
-              >
-                <source src="/statics/videos/story.mp4" type="video/mp4" />
-                您的瀏覽器不支援影片播放。
-              </video>
-              {/* 置頂提示文字 */}
-              <p className="relative z-10 text-xl text-white animate-pulse translate-y-72">
+                }
+              }}
+            >
+              <source src="/statics/videos/story.mp4" type="video/mp4" />
+              您的瀏覽器不支援影片播放。
+            </video>
+            
+            {/* 【修正點4】只有在 showWaitingText 為 true 時才顯示文字 */}
+            {showWaitingText && (
+              <div className="absolute bottom-[10vh] left-0 right-0 text-center z-10">
+              <p className="text-[2.5vw] md:text-2xl text-white animate-pulse">
                 {uploadLoading
                   ? "英雄正在生成… (圖片處理中)"
                   : !isPhotoReady
@@ -1991,7 +1992,9 @@ function calculateCombatResult(
                 }
               </p>
             </div>
-          ) : (
+            )}
+          </div>
+        ) : (
             // --- 狀態一：上傳介面 / 等待介面 / 錯誤介面 ---
         
             <div
