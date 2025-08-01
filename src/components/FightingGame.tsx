@@ -12,6 +12,35 @@ const GlobalStyles = () => (
     .animate-pop-in-out {
       animation: pop-in-out 1.4s forwards;
     }
+      
+    /* 【新】爆炸火花動畫 */
+    @keyframes hit-spark-animation {
+      0% { stroke-dashoffset: 0; opacity: 1; transform: scale(0.5) rotate(0deg); }
+      70% { stroke-dashoffset: 100; opacity: 1; transform: scale(1.2) rotate(30deg); }
+      100% { stroke-dashoffset: 100; opacity: 0; transform: scale(1.5) rotate(45deg); }
+    }
+    .animate-hit-spark path {
+      stroke: #FFD700; /* 金黃色 */
+      stroke-width: 8;
+      stroke-linecap: round;
+      fill: none;
+      stroke-dasharray: 100;
+      animation: hit-spark-animation 0.4s ease-out forwards;
+    }
+
+    /* 防禦碰撞波動畫 */
+    @keyframes block-shield-animation {
+      0% { transform: scale(0.2); opacity: 0; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+    .animate-block-shield {
+      animation: block-shield-animation 0.4s ease-out forwards;
+      background-color: rgba(52, 152, 219, 0.5); /* 藍色半透明 */
+      border: 3px solid #3498db;
+      border-radius: 50%;
+      box-shadow: 0 0 15px #3498db;
+    }
   `}</style>
 );
 import { Button } from './ui/button';
@@ -28,9 +57,6 @@ import AnimationPlayer, { AnimationSource } from './AnimationPlayer';
 const CHARACTER_WIDTH = 512;
 const CHARACTER_HEIGHT = 512;
 const MOVE_SPEED = 5;
-const DASH_SPEED = 20;
-//const JUMP_HEIGHT = 200;
-//const JUMP_DURATION = 800; // 毫秒
 
 // 【修改一】新增 BGM 音量統一控制常數
 const BGM_VOLUME = 0.5; // BGM 總音量 (0.0 至 1.0)
@@ -364,6 +390,16 @@ interface GameState {
  // 2. 載入 collision_data.json
  interface Box { x: number; y: number; width: number; height: number; }
 
+ interface Effect {
+  id: string;
+  type: 'hit-spark' | 'block-shield';
+  x: number;
+  y: number;
+  rotation?: number;
+  size?: number;
+  source?: AnimationSource;
+  facing?: 'left' | 'right';
+}
 
 const LEVELS = [
   { 
@@ -734,7 +770,7 @@ const FightingGame: React.FC = () => {
     hurtBox: { x: 600, y: 300, width: 40, height: 60 }
   });
 
-  const [effects, setEffects] = useState<Array<{id: string, type: string, x: number, y: number}>>([]);
+  const [effects, setEffects] = useState<Effect[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const gameLoopRef = useRef<number | null>(null); // 【新增】儲存 requestAnimationFrame 的 ID
@@ -1282,8 +1318,19 @@ useEffect(() => {
   ) {
     const p1HitBoxes = getAttackHitBox(p1, p1Frame, player1CollisionData);
     const p2HurtBoxes = getHurtBox(p2, player2CurrentFrame, player2CollisionData);
+    // 找到實際碰撞的點
+    let intersectionPoint: { x: number; y: number } | null = null;
+    for (const hitBox of p1HitBoxes) {
+      for (const hurtBox of p2HurtBoxes) {
+        if (isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)) {
+          intersectionPoint = getIntersectionPoint(hitBox, hurtBox);
+          break;
+        }
+      }
+      if (intersectionPoint) break;
+    }
 
-    if (p1HitBoxes.length > 0 && p2HurtBoxes.some(hurtBox => p1HitBoxes.some(hitBox => isFacingOpponent(p1, p2) && isCollision(hitBox, hurtBox)))) { 
+    if (intersectionPoint) { 
       player1HitRegisteredRef.current = true;
       
       const result = calculateCombatResult(p1, p2, gameState.currentLevel);
@@ -1306,7 +1353,7 @@ useEffect(() => {
           return { ...prev, health: newHealth, state: 'hit' };
         });
         setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-        addEffect('hit', p2.position.x, p2.position.y);
+        addEffect('hit', intersectionPoint.x, intersectionPoint.y);
         
         // 只播放撞擊聲和受傷聲
         if (baseAttackType) {
@@ -1337,7 +1384,19 @@ useEffect(() => {
     const p2HitBoxes = getAttackHitBox(p2, p2Frame, player2CollisionData);
     const p1HurtBoxes = getHurtBox(p1, player1CurrentFrame, player1CollisionData);
 
-    if (p2HitBoxes.length > 0 && p1HurtBoxes.some(hurtBox => p2HitBoxes.some(hitBox => isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)))) { 
+    // 找到實際碰撞的點
+    let intersectionPoint: { x: number; y: number } | null = null;
+    for (const hitBox of p2HitBoxes) {
+      for (const hurtBox of p1HurtBoxes) {
+        if (isFacingOpponent(p2, p1) && isCollision(hitBox, hurtBox)) {
+          intersectionPoint = getIntersectionPoint(hitBox, hurtBox);
+          break;
+        }
+      }
+      if (intersectionPoint) break;
+    }
+
+    if (intersectionPoint) { 
       player2HitRegisteredRef.current = true;
       
       const result = calculateCombatResult(p2, p1, gameState.currentLevel);
@@ -1361,7 +1420,7 @@ useEffect(() => {
           return { ...prev, health: newHealth, state: 'hit' };
         });
         setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
-        addEffect('hit', p1.position.x, p1.position.y);
+        addEffect('hit', intersectionPoint.x, intersectionPoint.y);
 
         // 只播放撞擊聲和受傷聲
         if (baseAttackType) {
@@ -1493,6 +1552,21 @@ function isCollision(rect1: Box, rect2: Box) {
     rect1.y + rect1.height > rect2.y
   );
 }
+// 【步驟二】新增此函式來計算碰撞中心點
+const getIntersectionPoint = (rect1: Box, rect2: Box): { x: number; y: number } | null => {
+  const x1 = Math.max(rect1.x, rect2.x);
+  const y1 = Math.max(rect1.y, rect2.y);
+  const x2 = Math.min(rect1.x + rect1.width, rect2.x + rect2.width);
+  const y2 = Math.min(rect1.y + rect1.height, rect2.y + rect2.height);
+
+  if (x1 < x2 && y1 < y2) {
+    // 有交集，返回交集區域的中心點
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  }
+  
+  return null; // 無交集
+};
+
 // 【新增】戰鬥結算中心 (傷害計算機)
 function calculateCombatResult(
   attacker: Character, 
@@ -1538,28 +1612,6 @@ function calculateCombatResult(
     return { damage: baseDamage, energyGain: energyGain, defended: false };
   }
 }
-  // Dash (前衝/後衝)
-  const dashPlayer = (direction: 'left' | 'right') => {
-    setPlayer1(prev => {
-    // 【修正】使用與遊戲主循環一致的邊界邏輯
-    const minX = cameraXRef.current; // 攝影機的左邊緣
-    const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH; // 攝影機的右邊緣
-      let newX = prev.position.x + (direction === 'left' ? -100 : 100);
-      newX = Math.max(minX, Math.min(maxX, newX));
-      
-      addEffect('dash', newX, prev.position.y);
-      return {
-        ...prev,
-        position: {
-          ...prev.position,
-          x: newX
-        },
-        facing: direction,
-        state: 'walk'
-      };
-    });
-    player1IdleStateRef.current = setTimeout(() => setPlayer1(prev => ({ ...prev, state: 'idle' })), 200);
-  };
 
   // 4. UI 只顯示 energy/maxEnergy，能量條正確顯示
   const specialAttack = () => {
@@ -1609,12 +1661,24 @@ function calculateCombatResult(
     }, 400);
   };
 
-  const addEffect = (type: string, x: number, y: number) => {
-    const effectId = Math.random().toString(36).substr(2, 9);
-    setEffects(prev => [...prev, { id: effectId, type, x, y }]);
-    setTimeout(() => {
-      setEffects(prev => prev.filter(e => e.id !== effectId));
-    }, 1000);
+  const addEffect = (type: 'hit' | 'defending', x: number, y: number) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    
+    if (type === 'hit') {
+      const newEffect: Effect = {
+        id, type: 'hit-spark',
+        x: x, // 直接使用傳入的精準碰撞點 X
+        y: y, // 直接使用傳入的精準碰撞點 Y
+        rotation: Math.random() * 360,
+        size: 150 + Math.random() * 50, // 放大火花尺寸
+      };
+      setEffects(prev => [...prev, newEffect]);
+      setTimeout(() => setEffects(prev => prev.filter(e => e.id !== id)), 400); // 延長動畫時間
+    } else if (type === 'defending') {
+      const newEffect: Effect = { id, type: 'block-shield', x: x + 80, y: y + 150, size: 150 };
+      setEffects(prev => [...prev, newEffect]);
+      setTimeout(() => setEffects(prev => prev.filter(e => e.id !== id)), 400);
+    }
   };
 
   // 勝負提示 Modal
@@ -2306,23 +2370,45 @@ function calculateCombatResult(
           {renderBoxes(getAttackHitBox(player2, player2CurrentFrame, player2CollisionData), 'player2', 'hit')}
 
         {/* Effects */}
-        {effects.map(effect => (
-            <div
-              key={effect.id}
-              className="absolute pointer-events-none"
-              style={{ 
-                left: effect.x, 
-                bottom: `${effect.y}px`
-              }}
-            >
-              {effect.type === 'hit' && <div className="text-4xl animate-bounce">💥</div>}
-              {effect.type === 'special' && <div className="text-5xl animate-pulse text-yellow-400">🌟</div>}
-              {effect.type === 'lightning' && <div className="text-6xl animate-pulse text-blue-400">⚡</div>}
-              {effect.type === 'jumpAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-              {effect.type === 'crouchAttack' && <div className="text-4xl animate-bounce text-red-600">💥</div>}
-              {effect.type === 'dash' && <div className="text-4xl animate-pulse text-blue-400">💨</div>}
-            </div>
-          ))}
+        {effects.map((effect) => {
+          if (effect.type === 'hit-spark' && effect.size) {
+            return (
+              <div
+                key={effect.id}
+                className="absolute pointer-events-none z-50"
+                style={{ 
+                  left: effect.x - effect.size / 2, // 將特效中心對準碰撞點
+                  bottom: effect.y - effect.size / 2,
+                  width: effect.size,
+                  height: effect.size,
+                }}
+              >
+                {/* 新的不規則爆炸星形 SVG */}
+                <svg viewBox="0 0 100 100" className="animate-hit-spark" style={{ transform: `rotate(${effect.rotation}deg)` }}>
+                  <path d="M50 0 L50 100" />
+                  <path d="M0 50 L100 50" />
+                  <path d="M15 15 L85 85" />
+                  <path d="M15 85 L85 15" />
+                </svg>
+              </div>
+            );
+          }
+          if (effect.type === 'block-shield' && effect.size) {
+            return (
+              <div
+                key={effect.id}
+                className="absolute pointer-events-none z-50 animate-block-shield"
+                style={{ 
+                  left: effect.x, 
+                  bottom: effect.y,
+                  width: effect.size,
+                  height: effect.size,
+                }}
+              />
+            );
+          }
+          return null;
+        })}
           </div>
         </div>
         {/* Level Battle UI */}
