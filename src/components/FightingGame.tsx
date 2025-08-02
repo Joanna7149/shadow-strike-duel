@@ -707,7 +707,7 @@ const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
     currentLevel: 1,
-    gamePhase: 'cover',
+    gamePhase: 'level-battle',
     isPaused: false,
     playerPhoto: null,
     lastResult: null
@@ -862,6 +862,7 @@ const FightingGame: React.FC = () => {
     // 根據遊戲階段播放音樂
     switch (gameState.gamePhase) {
       case 'character-setup':
+      case 'vs-screen':
         playMusic(bgmMap.cover.src, bgmMap.cover.independentVolume);
         break;
       case 'level-battle':
@@ -2213,27 +2214,44 @@ function calculateCombatResult(
     </div>
   )}
   {gameState.gamePhase === 'vs-screen' && (
-    <div className="fixed inset-0 bg-center bg-contain" style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}>
+    <div className="fixed inset-0 overflow-hidden bg-black">
+      {/* 底層：滿版背景 + 毛玻璃 */}
+      <div
+        className="absolute inset-0 bg-cover bg-center transform scale-105 filter blur-lg"
+        style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}
+      />
+      {/* 上層：正常不裁切 */}
+      <div className="relative z-10 h-full flex items-center justify-center">
+        <img
+          src={`/statics/VsScreen/VsScreen_${gameState.currentLevel}.png`}
+          alt={`Versus Stage ${gameState.currentLevel}`}
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
       {/* 掃光特效 */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden z-20">
        <div className="absolute w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
       </div>
     </div>
-  )}
+)}
   {gameState.gamePhase === 'ending-animation' && (
     <div className="fixed inset-0 overflow-hidden bg-black">
-      {/* 背景圖：完整顯示不裁切 */}
+      {/* 底層：滿版背景 + 毛玻璃 */}
       <div
-          className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-          style={{ 
-              backgroundImage: `url(${victoryImageUrl})`,
-              // 添加一個柔和的放大動畫
-              animation: 'scale-in-slow 20s forwards'
-          }}
+        className="absolute inset-0 bg-cover bg-center transform scale-105 filter blur-lg"
+        style={{ backgroundImage: `url('${victoryImageUrl}')` }}
       />
+      {/* 上層：正常不裁切 */}
+      <div className="relative z-10 h-full flex items-center justify-center">
+        <img
+          src={victoryImageUrl}
+          alt="Victory"
+          className="max-w-full max-h-full object-contain"
+        />
+      </div>
 
       {/* 漂浮粒子特效 */}
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none z-20">
           {[...Array(30)].map((_, i) => (
               <div
                   key={i}
@@ -2249,8 +2267,8 @@ function calculateCombatResult(
           ))}
       </div>
 
-      {/* 內容疊加層：放置在畫面左側垂直置中 */}
-      <div className="absolute top-1/2 left-0 transform -translate-y-1/2 z-10 p-12 w-full md:w-1/2 lg:w-1/3 bg-gradient-to-r from-black/90 via-black/70 to-transparent">
+      {/* 內容疊加層 */}
+      <div className="absolute top-1/2 left-0 transform -translate-y-1/2 z-30 p-12 w-full md:w-1/2 lg:w-1/3 bg-gradient-to-r from-black/90 via-black/70 to-transparent">
           <div className="text-left text-white">
               <h1 className="text-5xl md:text-6xl font-bold mb-4 text-yellow-300 drop-shadow-lg animate-fade-in" style={{ animationDelay: '0.5s' }}>
                   光明重新照耀城市
@@ -2269,7 +2287,7 @@ function calculateCombatResult(
           </div>
       </div>
     </div>
-  )}
+)}
   {['level-battle', 'round-over', 'pre-battle-sequence'].includes(gameState.gamePhase) && (
     <div className="w-screen h-screen bg-black relative overflow-hidden flex items-center justify-center">
       {/* 2. 內層的遊戲畫布 (縮放用) */}

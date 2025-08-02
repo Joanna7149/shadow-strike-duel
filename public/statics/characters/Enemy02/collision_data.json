@@ -3,10 +3,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 136,
+          "x": 190,
           "y": 0,
-          "width": 240,
-          "height": 325
+          "width": 170,
+          "height": 330
         }
       ],
       "hitBox": []
@@ -17,10 +17,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 87,
-          "y": 6,
-          "width": 299,
-          "height": 415
+          "x": 190,
+          "y": 0,
+          "width": 170,
+          "height": 340
         }
       ],
       "hitBox": []
@@ -28,57 +28,64 @@
     "2": {
       "hurtBox": [
         {
-          "x": 16,
-          "y": 6,
-          "width": 372,
-          "height": 406
+          "x": 190,
+          "y": 0,
+          "width": 170,
+          "height": 340
         }
       ],
       "hitBox": [
         { 
-          "x": 16,
-          "y": 6,
-          "width": 100,
-          "height": 300
+          "x": 40,
+          "y": 0,
+          "width": 170,
+          "height": 190
         }
       ]
     },
     "3": {
       "hurtBox": [
         {
-          "x": 9,
-          "y": 6,
-          "width": 385,
-          "height": 396
+          "x": 190,
+          "y": 0,
+          "width": 170,
+          "height": 340
         }
       ],
       "hitBox": [
         { 
-          "x": 9,
-          "y": 6,
-          "width": 100,
-          "height": 400
+          "x": 40,
+          "y": 130,
+          "width": 170,
+          "height": 250
         }
       ]
     },
     "4": {
       "hurtBox": [
         {
-          "x": 87,
-          "y": 6,
-          "width": 299,
-          "height": 415
+          "x": 190,
+          "y": 0,
+          "width": 170,
+          "height": 340
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        { 
+          "x": 40,
+          "y": 130,
+          "width": 170,
+          "height": 250
+        }
+      ]
     },
     "5": {
       "hurtBox": [
         {
-          "x": 16,
-          "y": 6,
-          "width": 372,
-          "height": 406
+          "x": 190,
+          "y": 0,
+          "width": 170,
+          "height": 340
         }
       ],
       "hitBox": []
@@ -88,10 +95,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 92,
+          "x": 180,
           "y": 0,
-          "width": 288,
-          "height": 390
+          "width": 175,
+          "height": 315
         }
       ],
       "hitBox": []
@@ -99,10 +106,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 90,
+          "x": 180,
           "y": 0,
-          "width": 272,
-          "height": 377
+          "width": 175,
+          "height": 315
         }
       ],
       "hitBox": []
@@ -110,60 +117,74 @@
     "3": {
       "hurtBox": [
         {
-          "x": 37,
+          "x": 180,
           "y": 0,
-          "width": 311,
-          "height": 378
+          "width": 175,
+          "height": 315
         }
       ],
       "hitBox": [
         {
-          "x": 37,
-          "y": 0,
-          "width": 170,
-          "height": 350
+          "x": 40,
+          "y": 210,
+          "width": 210,
+          "height": 70
         }
       ]
     },
     "4": {
       "hurtBox": [
         {
-          "x": 0,
+          "x": 180,
           "y": 0,
-          "width": 348,
-          "height": 378
+          "width": 175,
+          "height": 315
         }
       ],
       "hitBox": [
         {
-          "x": 0,
-          "y": 0,
-          "width": 170,
-          "height": 350
+          "x": 40,
+          "y": 210,
+          "width": 210,
+          "height": 70
         }
       ]
     },
     "5": {
       "hurtBox": [
         {
-          "x": 36,
+          "x": 180,
           "y": 0,
-          "width": 312,
-          "height": 378
+          "width": 175,
+          "height": 315
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 210,
+          "width": 210,
+          "height": 70
+        }
+      ]
     },
     "6": {
       "hurtBox": [
         {
-          "x": 90,
+          "x": 180,
           "y": 0,
-          "width": 272,
-          "height": 377
+          "width": 175,
+          "height": 315
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 210,
+          "width": 210,
+          "height": 70
+        }
+      ]
     }
   },
   "dead": {
@@ -282,84 +303,83 @@
     "1": {
       "hurtBox": [
         {
-          "x": 112,
+          "x": 180,
           "y": 0,
-          "width": 296,
-          "height": 471
+          "width": 170,
+          "height": 360
         }
       ],
       "hitBox": []
     }
   },
-  "down_ko": {},
   "hit": {
     "1": {
       "hurtBox": [
         {
-          "x": 0,
-          "y": 12,
-          "width": 280,
-          "height": 387
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "2": {
       "hurtBox": [
         {
-          "x": 3,
-          "y": 7,
-          "width": 255,
-          "height": 398
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "3": {
       "hurtBox": [
         {
-          "x": 3,
-          "y": 7,
-          "width": 254,
-          "height": 396
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "4": {
       "hurtBox": [
         {
-          "x": 12,
+          "x": 180,
           "y": 0,
-          "width": 290,
-          "height": 411
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "5": {
       "hurtBox": [
         {
-          "x": 18,
+          "x": 180,
           "y": 0,
-          "width": 336,
-          "height": 395
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "6": {
       "hurtBox": [
         {
-          "x": 24,
+          "x": 180,
           "y": 0,
-          "width": 337,
-          "height": 377
+          "width": 160,
+          "height": 430
         }
       ]
     },
     "7": {
       "hurtBox": [
         {
-          "x": 36,
+          "x": 180,
           "y": 0,
-          "width": 339,
-          "height": 362
+          "width": 160,
+          "height": 430
         }
       ]
     }
@@ -368,10 +388,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 169,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -379,10 +399,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 169,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -390,10 +410,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 169,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -401,10 +421,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 171,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -412,10 +432,10 @@
     "5": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 171,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -423,10 +443,10 @@
     "6": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 172,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -434,10 +454,10 @@
     "7": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 174,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -445,10 +465,10 @@
     "8": {
       "hurtBox": [
         {
-          "x": 175,
-          "y": 6,
-          "width": 175,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -456,10 +476,10 @@
     "9": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 174,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -467,10 +487,10 @@
     "10": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 172,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -478,10 +498,10 @@
     "11": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 171,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -489,10 +509,10 @@
     "12": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 171,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -500,10 +520,10 @@
     "13": {
       "hurtBox": [
         {
-          "x": 174,
-          "y": 6,
-          "width": 169,
-          "height": 441
+          "x": 200,
+          "y": 0,
+          "width": 160,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -513,10 +533,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 105,
-          "y": 10,
-          "width": 257,
-          "height": 455
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -524,10 +544,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 111,
-          "y": 32,
-          "width": 272,
-          "height": 450
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -535,10 +555,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 94,
-          "y": 59,
-          "width": 304,
-          "height": 438
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -546,10 +566,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 75,
-          "y": 72,
-          "width": 339,
-          "height": 435
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -557,10 +577,10 @@
     "5": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 74,
-          "width": 357,
-          "height": 438
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -568,10 +588,10 @@
     "6": {
       "hurtBox": [
         {
-          "x": 74,
-          "y": 123,
-          "width": 346,
-          "height": 378
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -579,10 +599,10 @@
     "7": {
       "hurtBox": [
         {
-          "x": 139,
-          "y": 73,
-          "width": 272,
-          "height": 415
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -590,10 +610,10 @@
     "8": {
       "hurtBox": [
         {
-          "x": 122,
-          "y": 24,
-          "width": 292,
-          "height": 444
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -601,10 +621,10 @@
     "9": {
       "hurtBox": [
         {
-          "x": 131,
-          "y": 17,
-          "width": 260,
-          "height": 442
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -612,10 +632,10 @@
     "10": {
       "hurtBox": [
         {
-          "x": 140,
-          "y": 4,
-          "width": 229,
-          "height": 446
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -625,10 +645,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 137,
-          "y": 176,
-          "width": 272,
-          "height": 331
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": []
@@ -636,117 +656,117 @@
     "2": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 157,
-          "width": 347,
-          "height": 348
-        }
-      ],
-      "hitBox": [
-        {
-          "x": 61,
-          "y": 147,
-          "width": 200,
+          "x": 180,
+          "y": 130,
+          "width": 160,
           "height": 300
         }
-      ]
+      ],
+      "hitBox": []
     },
     "3": {
       "hurtBox": [
         {
-          "x": 2,
-          "y": 111,
-          "width": 441,
-          "height": 392
-        }
-      ],
-      "hitBox": [
-        {
-          "x": 2,
-          "y": 101,
-          "width": 200,
+          "x": 180,
+          "y": 130,
+          "width": 160,
           "height": 300
         }
-      ]
+      ],
+      "hitBox": []
     },
     "4": {
       "hurtBox": [
         {
-          "x": 0,
-          "y": 121,
-          "width": 457,
-          "height": 382
-        }
-      ],
-      "hitBox": [
-        {
-          "x": 0,
-          "y": 111,
-          "width": 200,
+          "x": 180,
+          "y": 130,
+          "width": 160,
           "height": 300
         }
-      ]
+      ],
+      "hitBox": []
     },
     "5": {
       "hurtBox": [
         {
-          "x": 2,
-          "y": 111,
-          "width": 441,
-          "height": 392
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
       "hitBox": [
         {
-          "x": 2,
-          "y": 111,
-          "width": 200,
-          "height": 300
+          "x": 15,
+          "y": 205,
+          "width": 220,
+          "height": 80
         }
       ]
     },
     "6": {
       "hurtBox": [
         {
-          "x": 45,
-          "y": 136,
-          "width": 381,
-          "height": 367
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 100,
+          "y": 200,
+          "width": 130,
+          "height": 210
+        }
+      ]
     },
     "7": {
       "hurtBox": [
         {
-          "x": 93,
-          "y": 174,
-          "width": 320,
-          "height": 332
+          "x": 180,
+          "y": 130,
+          "width": 160,
+          "height": 300
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 100,
+          "y": 200,
+          "width": 130,
+          "height": 210
+        }
+      ]
     }
   },
   "jump_punch": {
     "1": {
       "hurtBox": [
         {
-          "x": 143,
-          "y": 15,
-          "width": 276,
-          "height": 487
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
     },
     "2": {
       "hurtBox": [
         {
-          "x": 147,
-          "y": 13,
-          "width": 278,
-          "height": 489
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": []
@@ -754,168 +774,182 @@
     "3": {
       "hurtBox": [
         {
-          "x": 112,
-          "y": 26,
-          "width": 296,
-          "height": 477
-        }
-      ],
-      "hitBox": []
-    },
-    "4": {
-      "hurtBox": [
-        {
-          "x": 77,
-          "y": 54,
-          "width": 338,
-          "height": 450
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 67,
-          "y": 60,
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
+    },
+    "4": {
+      "hurtBox": [
+        {
+          "x": 185,
+          "y": 80,
           "width": 150,
-          "height": 400
+          "height": 350
+        }
+      ],
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "5": {
       "hurtBox": [
         {
-          "x": 73,
-          "y": 102,
-          "width": 317,
-          "height": 403
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 63,
-          "y": 90,
-          "width": 150,
-          "height": 400
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "6": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 144,
-          "width": 323,
-          "height": 362
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 61,
-          "y": 130,
-          "width": 150,
-          "height": 350
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "7": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 144,
-          "width": 323,
-          "height": 362
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 61,
-          "y": 130,
-          "width": 150,
-          "height": 350
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "8": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 144,
-          "width": 323,
-          "height": 362
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 63,
-          "y": 130,
-          "width": 150,
-          "height": 350
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "9": {
       "hurtBox": [
         {
-          "x": 71,
-          "y": 131,
-          "width": 322,
-          "height": 374
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 61,
-          "y": 120,
-          "width": 150,
-          "height": 350
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "10": {
       "hurtBox": [
         {
-          "x": 72,
-          "y": 102,
-          "width": 318,
-          "height": 402
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 62,
-          "y": 90,
-          "width": 150,
-          "height": 400
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "11": {
       "hurtBox": [
         {
-          "x": 77,
-          "y": 54,
-          "width": 338,
-          "height": 450
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
       "hitBox": [
         {
-          "x": 67,
-          "y": 60,
-          "width": 150,
-          "height": 400
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "12": {
       "hurtBox": [
         {
-          "x": 80,
-          "y": 35,
-          "width": 352,
-          "height": 468
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
     },
     "13": {
       "hurtBox": [
@@ -926,39 +960,60 @@
           "height": 477
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
     },
     "14": {
       "hurtBox": [
         {
-          "x": 126,
-          "y": 20,
-          "width": 290,
-          "height": 483
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
     },
     "15": {
       "hurtBox": [
         {
-          "x": 147,
-          "y": 13,
-          "width": 278,
-          "height": 489
+          "x": 185,
+          "y": 80,
+          "width": 150,
+          "height": 350
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 40,
+          "y": 265,
+          "width": 210,
+          "height": 90
+      }
+    ]
     }
   },
   "kick": {
     "1": {
       "hurtBox": [
         {
-          "x": 138,
+          "x": 220,
           "y": 0,
-          "width": 187,
-          "height": 445
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -966,10 +1021,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 145,
+          "x": 220,
           "y": 0,
-          "width": 208,
-          "height": 437
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -977,54 +1032,54 @@
     "3": {
       "hurtBox": [
         {
-          "x": 125,
+          "x": 220,
           "y": 0,
-          "width": 260,
+          "width": 160,
           "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 125,
-          "y": 0,
-          "width": 120,
-          "height": 420
+          "x": 60,
+          "y": 90,
+          "width": 180,
+          "height": 170
         }
       ]
     },
     "4": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 220,
           "y": 0,
-          "width": 291,
-          "height": 393
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 127,
-          "y": 0,
-          "width": 120,
-          "height": 420
+          "x": 40,
+          "y": 190,
+          "width": 220,
+          "height": 150
         }
       ]
     },
     "5": {
       "hurtBox": [
         {
-          "x": 149,
+          "x": 220,
           "y": 0,
-          "width": 288,
-          "height": 388
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 149,
-          "y": 0,
-          "width": 120,
-          "height": 420
+          "x": 70,
+          "y": 230,
+          "width": 190,
+          "height": 200
         }
       ]
     }
@@ -1033,10 +1088,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 123,
-          "y": 7,
-          "width": 317,
-          "height": 403
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1044,10 +1099,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 122,
-          "y": 7,
-          "width": 317,
-          "height": 403
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1055,10 +1110,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 106,
-          "y": 10,
-          "width": 268,
-          "height": 409
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1066,10 +1121,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 105,
-          "y": 10,
-          "width": 251,
-          "height": 413
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1077,10 +1132,10 @@
     "5": {
       "hurtBox": [
         {
-          "x": 104,
-          "y": 6,
-          "width": 240,
-          "height": 418
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1088,111 +1143,111 @@
     "6": {
       "hurtBox": [
         {
-          "x": 104,
-          "y": 6,
-          "width": 237,
-          "height": 418
-        }
-      ],
-      "hitBox": []
-    },
-    "7": {
-      "hurtBox": [
-        {
-          "x": 17,
-          "y": 6,
-          "width": 349,
-          "height": 418
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 17,
-          "y": 6,
-          "width": 150,
+          "x": 30,
+          "y": 300,
+          "width": 210,
+          "height": 90
+        }
+      ]
+    },
+    "7": {
+      "hurtBox": [
+        {
+          "x": 180,
+          "y": 0,
+          "width": 160,
           "height": 420
+        }
+      ],
+      "hitBox": [
+        {
+          "x": 30,
+          "y": 300,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "8": {
       "hurtBox": [
         {
-          "x": 42,
-          "y": 7,
-          "width": 369,
-          "height": 414
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 40,
-          "y": 7,
-          "width": 150,
-          "height": 420
+          "x": 30,
+          "y": 300,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "9": {
       "hurtBox": [
         {
-          "x": 57,
-          "y": 8,
-          "width": 385,
-          "height": 409
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 57,
-          "y": 8,
-          "width": 150,
-          "height": 420
+          "x": 30,
+          "y": 300,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "10": {
       "hurtBox": [
         {
-          "x": 42,
-          "y": 7,
-          "width": 368,
-          "height": 414
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": [
         {
-          "x": 42,
-          "y": 7,
-          "width": 150,
-          "height": 420
+          "x": 30,
+          "y": 300,
+          "width": 210,
+          "height": 90
         }
       ]
     },
     "11": {
       "hurtBox": [
         {
-          "x": 17,
-          "y": 6,
-          "width": 349,
-          "height": 418
-        }
-      ],
-      "hitBox": [
-        {
-          "x": 17,
-          "y": 6,
-          "width": 150,
+          "x": 180,
+          "y": 0,
+          "width": 160,
           "height": 420
         }
-      ]
+      ],
+      "hitBox": []
     },
     "12": {
       "hurtBox": [
         {
-          "x": 104,
-          "y": 7,
-          "width": 237,
-          "height": 417
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1200,10 +1255,10 @@
     "13": {
       "hurtBox": [
         {
-          "x": 105,
-          "y": 6,
-          "width": 239,
-          "height": 417
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1211,10 +1266,10 @@
     "14": {
       "hurtBox": [
         {
-          "x": 106,
-          "y": 10,
-          "width": 250,
-          "height": 413
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1222,10 +1277,10 @@
     "15": {
       "hurtBox": [
         {
-          "x": 122,
-          "y": 7,
-          "width": 317,
-          "height": 403
+          "x": 180,
+          "y": 0,
+          "width": 160,
+          "height": 420
         }
       ],
       "hitBox": []
@@ -1235,10 +1290,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1246,10 +1301,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1257,10 +1312,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1268,10 +1323,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1279,43 +1334,64 @@
     "5": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        }
+      ]
     },
     "6": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        }
+      ]
     },
     "7": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": []
+      "hitBox": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 512,
+          "height": 512
+        }
+      ]
     },
     "8": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1323,10 +1399,10 @@
     "9": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1334,10 +1410,10 @@
     "10": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": [
@@ -1352,10 +1428,10 @@
     "11": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": [
@@ -1370,10 +1446,10 @@
     "12": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": [
@@ -1388,10 +1464,10 @@
     "13": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": [
@@ -1406,84 +1482,56 @@
     "14": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": [
-        {
-          "x": 0,
-          "y": 0,
-          "width": 512,
-          "height": 512
-        }
-      ]
+      "hitBox": []
     },
     "15": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": [
-        {
-          "x": 0,
-          "y": 0,
-          "width": 512,
-          "height": 512
-        }
-      ]
+      "hitBox": []
     },
     "16": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": [
-        {
-          "x": 0,
-          "y": 0,
-          "width": 512,
-          "height": 512
-        }
-      ]
+      "hitBox": []
     },
     "17": {
       "hurtBox": [
         {
-          "x": 200,
+          "x": 185,
           "y": 0,
-          "width": 100,
-          "height": 400
+          "width": 150,
+          "height": 460
         }
       ],
-      "hitBox": [
-        {
-          "x": 0,
-          "y": 0,
-          "width": 512,
-          "height": 512
-        }
-      ]
+      "hitBox": []
     }
   },
   "walk_backward": {
     "1": {
       "hurtBox": [
         {
-          "x": 125,
+          "x": 180,
           "y": 0,
-          "width": 217,
-          "height": 435
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1491,10 +1539,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 0,
+          "x": 180,
           "y": 0,
-          "width": 512,
-          "height": 512
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1502,10 +1550,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 130,
+          "x": 180,
           "y": 0,
-          "width": 189,
-          "height": 439
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1513,10 +1561,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 129,
+          "x": 180,
           "y": 0,
-          "width": 196,
-          "height": 434
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1524,10 +1572,10 @@
     "5": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 180,
           "y": 0,
-          "width": 226,
-          "height": 434
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1535,10 +1583,10 @@
     "6": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 180,
           "y": 0,
-          "width": 254,
-          "height": 431
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1546,10 +1594,10 @@
     "7": {
       "hurtBox": [
         {
-          "x": 118,
+          "x": 180,
           "y": 0,
-          "width": 275,
-          "height": 432
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1557,10 +1605,10 @@
     "8": {
       "hurtBox": [
         {
-          "x": 108,
+          "x": 180,
           "y": 0,
-          "width": 285,
-          "height": 435
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1570,10 +1618,10 @@
     "1": {
       "hurtBox": [
         {
-          "x": 108,
+          "x": 180,
           "y": 0,
-          "width": 285,
-          "height": 435
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1581,10 +1629,10 @@
     "2": {
       "hurtBox": [
         {
-          "x": 118,
+          "x": 180,
           "y": 0,
-          "width": 275,
-          "height": 432
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1592,10 +1640,10 @@
     "3": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 180,
           "y": 0,
-          "width": 254,
-          "height": 431
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1603,10 +1651,10 @@
     "4": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 180,
           "y": 0,
-          "width": 226,
-          "height": 434
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1614,10 +1662,10 @@
     "5": {
       "hurtBox": [
         {
-          "x": 129,
+          "x": 180,
           "y": 0,
-          "width": 196,
-          "height": 434
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1625,10 +1673,10 @@
     "6": {
       "hurtBox": [
         {
-          "x": 130,
+          "x": 180,
           "y": 0,
-          "width": 189,
-          "height": 439
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1636,10 +1684,10 @@
     "7": {
       "hurtBox": [
         {
-          "x": 127,
+          "x": 180,
           "y": 0,
-          "width": 227,
-          "height": 435
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
@@ -1647,16 +1695,15 @@
     "8": {
       "hurtBox": [
         {
-          "x": 125,
+          "x": 180,
           "y": 0,
-          "width": 217,
-          "height": 435
+          "width": 150,
+          "height": 460
         }
       ],
       "hitBox": []
     }
   },
-  "win_final": {},
   "win_round": {
     "1": {
       "hurtBox": [
