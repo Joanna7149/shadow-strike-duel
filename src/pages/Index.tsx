@@ -1,9 +1,13 @@
+import React, { Suspense } from 'react';
 
-import React from 'react';
-import FightingGame from '@/components/FightingGame';
+const FightingGame = React.lazy(() => import('@/components/FightingGame'));
 
-const Index = () => {
-  return <FightingGame />;
-};
+function Index() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FightingGame />
+    </Suspense>
+  );
+}
 
 export default Index;
