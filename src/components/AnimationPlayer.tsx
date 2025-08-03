@@ -119,11 +119,11 @@ const PngAnimationPlayer: React.FC<{
   // 使用正確的路徑載入圖片
   const frameNumber = currentFrame.toString();
   // 使用 import.meta.url 來正確處理 Vite 的靜態資源
-  // const imagePath = new URL(`../statics/characters/MainHero/animations/${source.path}/${frameNumber}.png`, import.meta.url).href;
+  // const imagePath = new URL(`.../statics/characters/MainHero/animations/${source.path}/${frameNumber}.png`, import.meta.url).href;
     // 根據 source.path 動態載入不同角色的圖片，舊的寫法
-  // const imagePath = new URL(`src/statics/characters/${source.path}/${frameNumber}.png`, import.meta.url).href;
+  // const imagePath = new URL(`src./statics/characters/${source.path}/${frameNumber}.png`, import.meta.url).href;
   // --- 新的寫法 ---
-const imagePath = `/statics/characters/${source.path}/${frameNumber}.png`;
+const imagePath = `./statics/characters/${source.path}/${frameNumber}.png`;
 
   useEffect(() => {
     if (onFrameChange) onFrameChange(currentFrame);

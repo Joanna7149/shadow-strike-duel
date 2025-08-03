@@ -67,56 +67,56 @@ const SFX_VOLUME = 0.7; // SFX 總音量 (0.0 至 1.0)
 // 【修改後】SFX Map，包含音效實例與獨立音量
 const sfxMap = {
   // Player
-  playerPunchEffort:   { audio: new Audio('/statics/audio/sfx/player/punch.mp3'),   independentVolume: 0.5 },
-  playerKickEffort:    { audio: new Audio('/statics/audio/sfx/player/kick.mp3'),    independentVolume: 0.5 },
-  playerSpecialEffort: { audio: new Audio('/statics/audio/sfx/player/special.mp3'), independentVolume: 0.5 },
-  playerHurt:          { audio: new Audio('/statics/audio/sfx/player/hurt.mp3'),    independentVolume: 0.7 },
-  playerDead:          { audio: new Audio('/statics/audio/sfx/player/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
-  playerVictory:       { audio: new Audio('/statics/audio/sfx/player/victory.mp3'), independentVolume: 0.7 }, // 新增勝利音效
+  playerPunchEffort:   { audio: new Audio('./statics/audio/sfx/player/punch.mp3'),   independentVolume: 0.5 },
+  playerKickEffort:    { audio: new Audio('./statics/audio/sfx/player/kick.mp3'),    independentVolume: 0.5 },
+  playerSpecialEffort: { audio: new Audio('./statics/audio/sfx/player/special.mp3'), independentVolume: 0.5 },
+  playerHurt:          { audio: new Audio('./statics/audio/sfx/player/hurt.mp3'),    independentVolume: 0.7 },
+  playerDead:          { audio: new Audio('./statics/audio/sfx/player/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
+  playerVictory:       { audio: new Audio('./statics/audio/sfx/player/victory.mp3'), independentVolume: 0.7 }, // 新增勝利音效
 
   // Enemy 1
-  enemy1PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy1/punch.mp3'),   independentVolume: 0.2 },
-  enemy1KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy1/kick.mp3'),    independentVolume: 0.2 },
-  enemy1SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy1/special.mp3'), independentVolume: 0.2 },
-  enemy1Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/hurt.mp3'),    independentVolume: 0.2 },
-  enemy1Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy1/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
-  enemy1Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy1/victory.mp3'), independentVolume: 0.8 }, // 新增勝利音效
+  enemy1PunchEffort:   { audio: new Audio('./statics/audio/sfx/enemies/enemy1/punch.mp3'),   independentVolume: 0.2 },
+  enemy1KickEffort:    { audio: new Audio('./statics/audio/sfx/enemies/enemy1/kick.mp3'),    independentVolume: 0.2 },
+  enemy1SpecialEffort: { audio: new Audio('./statics/audio/sfx/enemies/enemy1/special.mp3'), independentVolume: 0.2 },
+  enemy1Hurt:          { audio: new Audio('./statics/audio/sfx/enemies/enemy1/hurt.mp3'),    independentVolume: 0.2 },
+  enemy1Dead:          { audio: new Audio('./statics/audio/sfx/enemies/enemy1/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
+  enemy1Victory:       { audio: new Audio('./statics/audio/sfx/enemies/enemy1/victory.mp3'), independentVolume: 0.8 }, // 新增勝利音效
 
   // Enemy 2
-  enemy2PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.3 },
-  enemy2KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.3 },
-  enemy2SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy2/special.mp3'), independentVolume: 0.8 },
-  enemy2Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/hurt.mp3'),    independentVolume: 0.9 },
-  enemy2Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
-  enemy2Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy2/victory.mp3'), independentVolume: 0.8 }, // 新增勝利音效
+  enemy2PunchEffort:   { audio: new Audio('./statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.3 },
+  enemy2KickEffort:    { audio: new Audio('./statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.3 },
+  enemy2SpecialEffort: { audio: new Audio('./statics/audio/sfx/enemies/enemy2/special.mp3'), independentVolume: 0.8 },
+  enemy2Hurt:          { audio: new Audio('./statics/audio/sfx/enemies/enemy2/hurt.mp3'),    independentVolume: 0.9 },
+  enemy2Dead:          { audio: new Audio('./statics/audio/sfx/enemies/enemy2/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
+  enemy2Victory:       { audio: new Audio('./statics/audio/sfx/enemies/enemy2/victory.mp3'), independentVolume: 0.8 }, // 新增勝利音效
 
   // Enemy 3
-  enemy3PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy3/punch.mp3'),   independentVolume: 0.4 },
-  enemy3KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy3/kick.mp3'),    independentVolume: 0.3 },
-  enemy3SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 0.8 },
-  enemy3Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/hurt.mp3'),    independentVolume: 0.8 },
-  enemy3Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
-  enemy3Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy3/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
+  enemy3PunchEffort:   { audio: new Audio('./statics/audio/sfx/enemies/enemy3/punch.mp3'),   independentVolume: 0.4 },
+  enemy3KickEffort:    { audio: new Audio('./statics/audio/sfx/enemies/enemy3/kick.mp3'),    independentVolume: 0.3 },
+  enemy3SpecialEffort: { audio: new Audio('./statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 0.8 },
+  enemy3Hurt:          { audio: new Audio('./statics/audio/sfx/enemies/enemy3/hurt.mp3'),    independentVolume: 0.8 },
+  enemy3Dead:          { audio: new Audio('./statics/audio/sfx/enemies/enemy3/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
+  enemy3Victory:       { audio: new Audio('./statics/audio/sfx/enemies/enemy3/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
   
   // Impacts
-  impactPunch:   { audio: new Audio('/statics/audio/sfx/impact/punch.mp3'),   independentVolume: 0.6 },
-  impactKick:    { audio: new Audio('/statics/audio/sfx/impact/kick.mp3'),    independentVolume: 0.6 },
-  impactSpecial: { audio: new Audio('/statics/audio/sfx/impact/special.mp3'), independentVolume: 0.7 },
+  impactPunch:   { audio: new Audio('./statics/audio/sfx/impact/punch.mp3'),   independentVolume: 0.6 },
+  impactKick:    { audio: new Audio('./statics/audio/sfx/impact/kick.mp3'),    independentVolume: 0.6 },
+  impactSpecial: { audio: new Audio('./statics/audio/sfx/impact/special.mp3'), independentVolume: 0.7 },
   // UI
-  uiClick1: { audio: new Audio('/statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 0.8 },
-  uiClick2: { audio: new Audio('/statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 0.8 },
-  uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 0.8 },
-  announcerReady: { audio: new Audio('/statics/audio/sfx/ui/ready.mp3'), independentVolume: 0.8 }, // 【新增】
-  announcerGo:    { audio: new Audio('/statics/audio/sfx/ui/go.mp3'),    independentVolume: 0.8 }, // 【新增】
-  announcerKO:    { audio: new Audio('/statics/audio/sfx/ui/ko.mp3'),      independentVolume: 1 }, // 【新增】
+  uiClick1: { audio: new Audio('./statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 0.8 },
+  uiClick2: { audio: new Audio('./statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 0.8 },
+  uiClick3: { audio: new Audio('./statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 0.8 },
+  announcerReady: { audio: new Audio('./statics/audio/sfx/ui/ready.mp3'), independentVolume: 0.8 }, // 【新增】
+  announcerGo:    { audio: new Audio('./statics/audio/sfx/ui/go.mp3'),    independentVolume: 0.8 }, // 【新增】
+  announcerKO:    { audio: new Audio('./statics/audio/sfx/ui/ko.mp3'),      independentVolume: 1 }, // 【新增】
 };
 
 // 【新增】BGM Map，包含音源與獨立音量
 const bgmMap = {
-  cover:    { src: '/statics/audio/bgm/cover.m4a',    independentVolume: 0.8 },
-  victory:  { src: '/statics/audio/bgm/victory.mp3',  independentVolume: 0.8 },
-  failure:  { src: '/statics/audio/bgm/failure.mp3',  independentVolume: 0.8 },
-  ending:   { src: '/statics/audio/bgm/ending.mp3',   independentVolume: 0.8 },
+  cover:    { src: './statics/audio/bgm/cover.m4a',    independentVolume: 0.8 },
+  victory:  { src: './statics/audio/bgm/victory.mp3',  independentVolume: 0.8 },
+  failure:  { src: './statics/audio/bgm/failure.mp3',  independentVolume: 0.8 },
+  ending:   { src: './statics/audio/bgm/ending.mp3',   independentVolume: 0.8 },
 };
 
 // 【新增】定義遊戲世界的固定尺寸
@@ -254,7 +254,7 @@ const ANIMATION_CONFIGS = {
   // Spritesheet 動畫配置
   spritesheet: {
     type: 'spritesheet' as const,
-    path: '/src/statics/characters/MainHero/animations/',
+    path: '/src./statics/characters/MainHero/animations/',
     frameRate: 10
   }
 };
@@ -410,8 +410,8 @@ const LEVELS = [
     boss: '火爆拳',
     bg: 'linear-gradient(135deg, #2c1810 0%, #8b4513 50%, #1a1a1a 100%)',
     description: '在燃燒的倉庫中, 你遇到了火爆拳...',
-    bgImage: '/statics/backgrounds/Stage1/stage1.png',
-    bgm: { src: '/statics/audio/bgm/stage1.mp3', independentVolume: 0.4 }
+    bgImage: './statics/backgrounds/Stage1/stage1.png',
+    bgm: { src: './statics/audio/bgm/stage1.mp3', independentVolume: 0.4 }
   },
   { 
     id: 2, 
@@ -419,8 +419,8 @@ const LEVELS = [
     boss: '蛇鞭女',
     bg: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%)',
     description: '廢棄的月台上, 蛇鞭女正等著你...',
-    bgImage: '/statics/backgrounds/Stage2/stage2.png',
-    bgm: { src: '/statics/audio/bgm/stage2.mp3', independentVolume: 1.0 }
+    bgImage: './statics/backgrounds/Stage2/stage2.png',
+    bgm: { src: './statics/audio/bgm/stage2.mp3', independentVolume: 1.0 }
   },
   { 
     id: 3, 
@@ -428,8 +428,8 @@ const LEVELS = [
     boss: '心控王',
     bg: 'linear-gradient(135deg, #0d0d0d 0%, #2d1b69 50%, #000000 100%)',
     description: '最終戰！虛空之塔的心控王現身...',
-    bgImage: '/statics/backgrounds/Stage3/stage3.png',
-    bgm: { src: '/statics/audio/bgm/stage3.mp3', independentVolume: 0.8 }
+    bgImage: './statics/backgrounds/Stage3/stage3.png',
+    bgm: { src: './statics/audio/bgm/stage3.mp3', independentVolume: 0.8 }
   }
 ];
 
@@ -758,7 +758,7 @@ const FightingGame: React.FC = () => {
   };
 
   // 背景圖片路徑
-  // const backgroundImage = '/statics/backgrounds/Stage1/stage1.png';
+  // const backgroundImage = './statics/backgrounds/Stage1/stage1.png';
   
   // 1. 玩家初始 energy=0
   const [player1, setPlayer1] = useState<Character>({
@@ -1504,7 +1504,7 @@ useEffect(() => {
 }, [player1.state]);
 
   useEffect(() => {
-    fetch(`/statics/characters/MainHero/collision_data.json`)
+    fetch(`./statics/characters/MainHero/collision_data.json`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status} for MainHero`);
         return res.json();
@@ -1518,7 +1518,7 @@ useEffect(() => {
     const enemyFolders = { 1: 'Enemy01', 2: 'Enemy02', 3: 'Enemy03' };
     const enemyFolder = enemyFolders[gameState.currentLevel as keyof typeof enemyFolders] || 'Enemy01';
     
-    fetch(`/statics/characters/${enemyFolder}/collision_data.json`)
+    fetch(`./statics/characters/${enemyFolder}/collision_data.json`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${enemyFolder}`);
         return res.json();
@@ -2028,7 +2028,7 @@ function calculateCombatResult(
   // 需要在 return 外部定義這些變數
   const victoryImageUrl = gameState.taskId 
     ? `https://storage.googleapis.com/vibe_coding_bucket/results/${gameState.taskId}/2.png`
-    : '/statics/cover/cover_image.png';
+    : './statics/cover/cover_image.png';
   const currentLevelData = LEVELS[gameState.currentLevel - 1];
   const renderBoxes = (boxes: Box[], characterId: string, boxType: 'hit' | 'hurt') => {
     const borderColor = boxType === 'hit' ? 'red' : 'blue';
@@ -2088,14 +2088,14 @@ function calculateCombatResult(
             filter blur-lg              /* 改成 blur-lg（中等強度） */
           "
           style={{
-            backgroundImage: `url('/statics/cover/cover_image.png')`
+            backgroundImage: `url('./statics/cover/cover_image.png')`
           }}
           />
 
           {/* 上層：完整不裁切 */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <img
-              src="/statics/cover/cover_image.png"
+              src="./statics/cover/cover_image.png"
               alt="Cover"
               className="max-w-full max-h-full object-contain"
             />
@@ -2103,7 +2103,7 @@ function calculateCombatResult(
             {/* 底層：背景圖 + Ken Burns 效果 */}
             <div
               className="absolute inset-0 bg-contain bg-center bg-no-repeat animate-ken-burns" // 【修改後】
-              style={{ backgroundImage: `url('/statics/cover/cover_image.png')` }} // <-- 請換成您的啟動頁圖片路徑
+              style={{ backgroundImage: `url('./statics/cover/cover_image.png')` }} // <-- 請換成您的啟動頁圖片路徑
             />
 
             {/* 中層：掃光特效 */}
@@ -2141,7 +2141,7 @@ function calculateCombatResult(
         </div>
       )}
       {gameState.gamePhase === 'character-setup' && (
-        <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/statics/cover/character_setup.png')" }}>
+        <div className="fixed inset-0 bg-cover bg-center" style={{ backgroundImage: "url('./statics/cover/character_setup.png')" }}>
         {isStoryVideoPlaying || (isVideoEnded && !isPhotoReady) ? ( // 【修正點1】只要影片在播，或已播完且照片未就緒，就保持此畫面
           // --- 狀態二：正在播放/等待影片 ---
           <div className="fixed inset-0 bg-black flex flex-col items-center justify-center">
@@ -2162,7 +2162,7 @@ function calculateCombatResult(
                 }
               }}
             >
-              <source src="/statics/videos/story.mp4" type="video/mp4" />
+              <source src="./statics/videos/story.mp4" type="video/mp4" />
               您的瀏覽器不支援影片播放。
             </video>
             
@@ -2190,7 +2190,7 @@ function calculateCombatResult(
                 {/* 選單框 (使用背景圖實現，並作為內部元素的定位基準) */}
                 <div 
                   className="relative w-[500px] h-[700px] bg-contain bg-no-repeat bg-center"
-                  style={{ backgroundImage: `url('/statics/cover/ui_frame.png')` }}
+                  style={{ backgroundImage: `url('./statics/cover/ui_frame.png')` }}
                 >
     
                 <h2 className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-4xl font-bold text-white drop-shadow-lg">
@@ -2265,12 +2265,12 @@ function calculateCombatResult(
       {/* 底層：滿版背景 + 毛玻璃 */}
       <div
         className="absolute inset-0 bg-cover bg-center transform scale-105 filter blur-lg"
-        style={{ backgroundImage: `url('/statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}
+        style={{ backgroundImage: `url('./statics/VsScreen/VsScreen_${gameState.currentLevel}.png')` }}
       />
       {/* 上層：正常不裁切 */}
       <div className="relative z-10 h-full flex items-center justify-center">
         <img
-          src={`/statics/VsScreen/VsScreen_${gameState.currentLevel}.png`}
+          src={`./statics/VsScreen/VsScreen_${gameState.currentLevel}.png`}
           alt={`Versus Stage ${gameState.currentLevel}`}
           className="max-w-full max-h-full object-contain"
         />
@@ -2552,7 +2552,7 @@ function calculateCombatResult(
     </div>
     <div className="w-28 h-28 flex-shrink-0 ml-2">
       <img
-        src={`/statics/Avatars/Avatar_Enemy0${gameState.currentLevel}.png`}
+        src={`./statics/Avatars/Avatar_Enemy0${gameState.currentLevel}.png`}
         alt="AI"
         className="w-full h-full object-contain"
       />

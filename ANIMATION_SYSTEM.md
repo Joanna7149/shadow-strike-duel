@@ -36,7 +36,7 @@ type AnimationSource = {
 ### 子組件
 
 #### PngAnimationPlayer
-- 使用動態 import 載入 src/statics 目錄下的 PNG 圖片
+- 使用動態 import 載入 src./statics 目錄下的 PNG 圖片
 - 自動檢測動畫幀數
 - 支援自動循環播放
 - 支援翻轉方向
@@ -89,7 +89,7 @@ const pngSource: AnimationSource = {
 // Spritesheet 模式
 const spritesheetSource: AnimationSource = {
   type: 'spritesheet',
-  path: '/src/statics/characters/MainHero/animations/',
+  path: '/src./statics/characters/MainHero/animations/',
   frameRate: 10,
   state: 'idle'
 };
@@ -153,7 +153,7 @@ const ANIMATION_CONFIGS = {
   },
   spritesheet: {
     type: 'spritesheet',
-    path: '/src/statics/characters/MainHero/animations/',
+    path: '/src./statics/characters/MainHero/animations/',
     frameRate: 10
   }
 };
@@ -237,7 +237,7 @@ const animationSource = getAnimationSource(player.state, false); // 第二個參
 
 1. **圖片載入失敗**
    - 檢查路徑是否正確
-   - 確認圖片檔案存在於 src/statics 目錄
+   - 確認圖片檔案存在於 src./statics 目錄
    - 檢查瀏覽器 console 錯誤
 
 2. **動畫不播放**
