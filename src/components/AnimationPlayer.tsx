@@ -152,7 +152,7 @@ const imagePath = `/statics/characters/${source.path}/${frameNumber}.png`;
           objectFit: 'contain',
           maxWidth: '100%',
           maxHeight: '100%',
-          border: "3px solid green"
+          // border: "3px solid green"
         }}
         onLoad={() => setIsLoaded(true)}
         onError={(e) => {

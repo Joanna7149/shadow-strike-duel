@@ -2017,7 +2017,7 @@ function calculateCombatResult(
             bottom: `${box.y}px`,
             width: `${box.width}px`,
             height: `${box.height}px`,
-            border: `2px solid ${borderColor}`,
+            // border: `2px solid ${borderColor}`,
             boxSizing: 'border-box',
             pointerEvents: 'none',
             zIndex: 999,
