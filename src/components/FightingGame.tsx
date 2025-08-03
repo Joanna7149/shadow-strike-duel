@@ -83,8 +83,8 @@ const sfxMap = {
   enemy1Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy1/victory.mp3'), independentVolume: 0.8 }, // 新增勝利音效
 
   // Enemy 2
-  enemy2PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.8 },
-  enemy2KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.8 },
+  enemy2PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy2/punch.mp3'),   independentVolume: 0.3 },
+  enemy2KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy2/kick.mp3'),    independentVolume: 0.3 },
   enemy2SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy2/special.mp3'), independentVolume: 0.8 },
   enemy2Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/hurt.mp3'),    independentVolume: 0.9 },
   enemy2Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy2/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
@@ -93,7 +93,7 @@ const sfxMap = {
   // Enemy 3
   enemy3PunchEffort:   { audio: new Audio('/statics/audio/sfx/enemies/enemy3/punch.mp3'),   independentVolume: 0.4 },
   enemy3KickEffort:    { audio: new Audio('/statics/audio/sfx/enemies/enemy3/kick.mp3'),    independentVolume: 0.3 },
-  enemy3SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 1.0 },
+  enemy3SpecialEffort: { audio: new Audio('/statics/audio/sfx/enemies/enemy3/special.mp3'), independentVolume: 0.8 },
   enemy3Hurt:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/hurt.mp3'),    independentVolume: 0.8 },
   enemy3Dead:          { audio: new Audio('/statics/audio/sfx/enemies/enemy3/dead.mp3'),    independentVolume: 0.8 }, // 【新增】
   enemy3Victory:       { audio: new Audio('/statics/audio/sfx/enemies/enemy3/victory.mp3'), independentVolume: 1.0 }, // 新增勝利音效
@@ -106,17 +106,17 @@ const sfxMap = {
   uiClick1: { audio: new Audio('/statics/audio/sfx/ui/button_click1.mp3'), independentVolume: 0.8 },
   uiClick2: { audio: new Audio('/statics/audio/sfx/ui/button_click2.mp3'), independentVolume: 0.8 },
   uiClick3: { audio: new Audio('/statics/audio/sfx/ui/button_click3.mp3'), independentVolume: 0.8 },
-  announcerReady: { audio: new Audio('/statics/audio/sfx/ui/ready.mp3'), independentVolume: 1.0 }, // 【新增】
+  announcerReady: { audio: new Audio('/statics/audio/sfx/ui/ready.mp3'), independentVolume: 0.8 }, // 【新增】
   announcerGo:    { audio: new Audio('/statics/audio/sfx/ui/go.mp3'),    independentVolume: 0.8 }, // 【新增】
-  announcerKO:    { audio: new Audio('/statics/audio/sfx/ui/ko.mp3'),      independentVolume: 0.8 }, // 【新增】
+  announcerKO:    { audio: new Audio('/statics/audio/sfx/ui/ko.mp3'),      independentVolume: 1 }, // 【新增】
 };
 
 // 【新增】BGM Map，包含音源與獨立音量
 const bgmMap = {
-  cover:    { src: '/statics/audio/bgm/cover.m4a',    independentVolume: 1.0 },
+  cover:    { src: '/statics/audio/bgm/cover.m4a',    independentVolume: 0.8 },
   victory:  { src: '/statics/audio/bgm/victory.mp3',  independentVolume: 0.8 },
   failure:  { src: '/statics/audio/bgm/failure.mp3',  independentVolume: 0.8 },
-  ending:   { src: '/statics/audio/bgm/ending.mp3',   independentVolume: 1.0 },
+  ending:   { src: '/statics/audio/bgm/ending.mp3',   independentVolume: 0.8 },
 };
 
 // 【新增】定義遊戲世界的固定尺寸
@@ -451,6 +451,7 @@ const AI_PROFILES = {
     thinkingInterval: { min: 45, max: 75 },
     combos: [
       { sequence: ['punch', 'punch'] as const, chance: 0.7 },
+      { sequence: ['punch', 'kick'] as const, chance: 0.7 },
     ],
   },
   2: { // 第二關：蛇鞭女 - 靈活的立回牽制者
@@ -462,6 +463,7 @@ const AI_PROFILES = {
     combos: [
       { sequence: ['punch', 'kick'] as const, chance: 0.6 },
       { sequence: ['kick', 'punch'] as const, chance: 0.5 },
+      { sequence: ['kick', 'kick'] as const, chance: 0.5 },
     ],
   },
   3: { // 第三關：心控王 - 耐心的機會主義者
@@ -471,8 +473,10 @@ const AI_PROFILES = {
     probeChance: 0.7, // 【新增】非常喜歡試探，引誘你出招
     thinkingInterval: { min: 90, max: 150 },
     combos: [
-      { sequence: ['kick', 'punch'] as const, chance: 0.5 },
-      { sequence: ['punch', 'special_attack'] as const, chance: 0.4 },
+      { sequence: ['kick', 'punch'],              chance: 0.7 },
+      { sequence: ['punch', 'special_attack'],    chance: 0.6 },
+      { sequence: ['jump_punch','kick','special_attack'], chance: 0.5 },
+      { sequence: ['crouch_kick','punch','kick'], chance: 0.4 },
     ],
   }
 } as const;
@@ -582,6 +586,12 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
      nextCombo: null
    };
   }
+  // --- 0.2 Whiff Punish ---
+ if ((player.state === 'landing' || player.state === 'idle') && distance < profile.attackRange) {
+     // 立即用最快的轻击惩罚
+   const punish = Math.random() < 0.7 ? 'punch' : 'kick';
+   return { nextAiState: 'ENGAGING', action: punish, nextTimer: 0, nextCombo: null };
+  }
 
   // --- 1. 最高優先級：連招執行 ---
   if (currentCombo && currentCombo.step < currentCombo.sequence.length) {
@@ -644,7 +654,12 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
       }
       break;
     case 'DEFENSIVE':
-      action = (Math.random() < profile.defenseChance) ? 'defending' : 'walk_backward';
+      // 若玩家不在攻击帧或距离拉开则脱出防御
+      if (!playerIsAttacking || distance > profile.attackRange + 60) {
+        action = 'walk_backward';
+      } else {
+        action = (Math.random() < profile.defenseChance) ? 'defending' : 'walk_backward';
+      }
       break;
     case 'APPROACHING':
       action = (Math.random() < 0.2) ? 'jump_kick' : 'walk_forward';
@@ -667,7 +682,16 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
         } 
         // 2) 進攻：真正的連招
         else if (r < profile.probeChance + profile.aggression) {
-          const comboToDo = profile.combos.find(c => Math.random() < c.chance);
+          const totalWeight = profile.combos.reduce((sum, c) => sum + c.chance, 0);
+          let rnd = Math.random() * totalWeight;
+          let comboToDo;
+           for (const c of profile.combos) {
+         if (rnd < c.chance) {
+          comboToDo = c;
+         break;
+    }
+    rnd -= c.chance;
+  }
           if (comboToDo) {
             // 檢查能量是否足夠 (如果連招包含必殺技)
             if (comboToDo.sequence.includes('special_attack') && ai.energy < ai.maxEnergy) {
@@ -709,7 +733,7 @@ const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
     currentLevel: 1,
-    gamePhase: 'cover',
+    gamePhase: 'level-battle',
     isPaused: false,
     playerPhoto: null,
     lastResult: null
@@ -1272,6 +1296,7 @@ setPlayer2(prev => {
     aiActionTimer: nextTimer, // 【新增】更新 AI 的思考計時器
   };
 });
+
         // 【新增以下攝影機邏輯】
       const p1_x = player1Ref.current.position.x;
       const p2_x = player2Ref.current.position.x;
