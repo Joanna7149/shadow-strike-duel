@@ -2500,7 +2500,7 @@ function calculateCombatResult(
 <div className="flex justify-between items-center mb-2">
   {/* 玩家血條與頭像 */}
   <div className="w-2/5 flex items-center space-x-4">
-    <div className="w-28 h-28 flex-shrink-0">
+    <div className="w-56 h-56 flex-shrink-0">
       {gameState.playerPhoto ? (
         <img src={gameState.playerPhoto} alt="玩家" className="w-full h-full object-contain" />
       ) : (
@@ -2550,7 +2550,7 @@ function calculateCombatResult(
         isPlayer1={false}
       />
     </div>
-    <div className="w-28 h-28 flex-shrink-0 ml-2">
+    <div className="w-56 h-56 flex-shrink-0 ml-2">
       <img
         src={`./statics/Avatars/Avatar_Enemy0${gameState.currentLevel}.png`}
         alt="AI"
