@@ -567,7 +567,7 @@ function aiBrain(ai: Character, player: Character, level: number, winStreak: num
 
   // --- 0. 反應式擋格（偵測玩家攻擊即時擋格）---
   const playerIsAttacking = ['punch', 'kick', 'special_attack', 'jump_punch', 'jump_kick', 'crouch_punch', 'crouch_kick'].includes(player.state);
-  if (playerIsAttacking && distance < profile.attackRange + 40 && Math.random() < profile.defenseChance + 0.2) {
+  if (playerIsAttacking && distance < profile.attackRange + 40 && Math.random() < (profile.defenseChance / 15)) {
     return {
       nextAiState: 'DEFENSIVE',
       action: 'defending',
@@ -828,9 +828,25 @@ const FightingGame: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null); // 儲存上傳錯誤訊息
   const storyVideoRef = useRef<HTMLVideoElement | null>(null); // 用於控制影片播放
 
+  // 【新增】為 gameState 建立一個 ref (中央公告欄)，以在各處取得最新狀態
+  const gameStateRef = useRef(gameState);
+
+   // 【新增】為 winStreak 建立一個 ref，確保主循環能讀到最新的連勝次數
+   const winStreakRef = useRef(winStreak);
+
   useEffect(() => {
     player1Ref.current = player1;
   }, [player1]);
+
+ // 【新增】這個 useEffect 的作用是隨時將最新的 gameState 同步到 ref 中
+ useEffect(() => {
+  gameStateRef.current = gameState;
+}, [gameState]);
+
+// 【新增】這個 useEffect 的作用是隨時將最新的 winStreak 同步到 ref 中
+useEffect(() => {
+  winStreakRef.current = winStreak;
+}, [winStreak]);
 
   useEffect(() => {
     player2Ref.current = player2;
@@ -970,29 +986,48 @@ useEffect(() => {
   }
 }, [gameState.gamePhase]);
 
-// 【步驟三】新增此 useEffect 來控制戰前動畫序列
+// 【修復後】控制戰前動畫序列，並確保所有戰鬥資料載入完成後才開始
 useEffect(() => {
   if (gameState.gamePhase === 'pre-battle-sequence') {
-    setPressedKeys(new Set()); 
+    setPressedKeys(new Set());
 
+    // 顯示 "Stage", "Ready", "Go!" 的動畫計時器
     const sequenceActions = [
       { text: `Stage ${gameState.currentLevel}`, sfx: sfxMap.uiClick1, delay: 500 },
       { text: 'Ready', sfx: sfxMap.announcerReady, delay: 2000 },
       { text: 'Go!', sfx: sfxMap.announcerGo, delay: 3500 },
-      { text: '', sfx: undefined, delay: 4500, action: () => setGameState(prev => ({ ...prev, gamePhase: 'level-battle' })) }
     ];
 
     const timeouts = sequenceActions.map(seq => 
       setTimeout(() => {
         setAnnouncementText(seq.text);
         if (seq.sfx) playSfxWithDucking(seq.sfx);
-        if (seq.action) seq.action();
       }, seq.delay)
     );
 
-    return () => timeouts.forEach(clearTimeout);
+    // 戰鬥開始的檢查器：在4.5秒後啟動，會持續檢查直到所有資料都就緒
+    const startBattleWhenReady = () => {
+      // 檢查玩家和AI的碰撞資料是否都已載入
+      if (player1CollisionData && player2CollisionData) {
+        // 資料齊全，正式開始戰鬥！
+        setGameState(prev => ({ ...prev, gamePhase: 'level-battle' }));
+        setAnnouncementText(''); // 清除 "Go!" 的文字
+      } else {
+        // 如果資料還沒載入好，100毫秒後再檢查一次
+        setTimeout(startBattleWhenReady, 100);
+      }
+    };
+
+    // 在 "Go!" 動畫播放完畢後，啟動戰鬥開始檢查器
+    const battleCheckTimeout = setTimeout(startBattleWhenReady, 4500);
+
+    // 清除函式：當元件卸載或 gamePhase 改變時，清除所有計時器
+    return () => {
+      timeouts.forEach(clearTimeout);
+      clearTimeout(battleCheckTimeout);
+    };
   }
-}, [gameState.gamePhase, gameState.currentLevel]);
+}, [gameState.gamePhase, gameState.currentLevel, player1CollisionData, player2CollisionData]);
 
   // 【新增/替換】處理遊戲畫布縮放的 useEffect
   useEffect(() => {
@@ -1084,6 +1119,7 @@ const handleP2AnimationComplete = () => {
     // AI 的攻擊、受擊、防禦動畫都屬於單次播放
     const isSinglePlayAnimation = [
       'punch', 'kick', 'crouch_punch', 'crouch_kick', 
+      'jump_punch', 'jump_kick', // <-- 【最終修復】新增這兩個跳躍攻擊
       'hit', 'special_attack', 'defending', 'attacking'
     ].includes(prev.state);
 
@@ -1096,9 +1132,9 @@ const handleP2AnimationComplete = () => {
 };
   // Battle controls
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) return;
+      if (gameStateRef.current.gamePhase !== 'level-battle' || gameStateRef.current.isPaused) return;
       const key = e.key.toLowerCase();
-  
+
       setPressedKeys(prev => {
     const newKeys = new Set(prev);
     newKeys.add(key);
@@ -1119,16 +1155,16 @@ const handleKeyUp = (e: KeyboardEvent) => {
   });
 };
 
-// [NEW] 此 useEffect 只負責綁定/解綁事件監聽器
+// 【修復後】此 useEffect 只在元件掛G載時綁定一次監聽，在卸載時移除，確保穩定。
 useEffect(() => {
-  // 每次 player1.state 改變，都重新註冊 handleKeyDown，以捕獲最新的 state
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
+
   return () => {
     window.removeEventListener('keydown', handleKeyDown);
     window.removeEventListener('keyup', handleKeyUp);
   };
-}, [gameState.gamePhase, gameState.isPaused, player1.state]); // <-- 【重要】在這裡加入 player1.state
+}, []); // <-- 【核心修復】依賴項改為空陣列 []
 
 // 檔案: FightingGame.tsx
 
@@ -1138,9 +1174,14 @@ useEffect(() => {
   const JUMP_FORCE = 18;
 
   const gameLoop = () => {
+    // 【修復】從 ref (公告欄) 讀取所有最新的 state，避免閉包問題
+    const currentGameState = gameStateRef.current;
+    const currentWinStreak = winStreakRef.current;
+
     // --- 玩家狀態更新 ---
     setPlayer1(prev => {
-      if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) {
+      // 【修復】使用從 ref 讀取到的最新狀態進行判斷
+      if (currentGameState.gamePhase !== 'level-battle' || currentGameState.isPaused) {
         return prev;
       }
 
@@ -1165,12 +1206,10 @@ useEffect(() => {
 
       if (canAct()) {
         if (nextIsGrounded) { // 只有在地面上時才能觸發新的地面動作
-          // 組合鍵
           if (pressedKeysRef.current.has('w') && pressedKeysRef.current.has('j')) { nextState = 'jump_punch'; nextVelocityY = JUMP_FORCE; player1HitRegisteredRef.current = false; }
           else if (pressedKeysRef.current.has('w') && pressedKeysRef.current.has('k')) { nextState = 'jump_kick'; nextVelocityY = JUMP_FORCE; player1HitRegisteredRef.current = false; }
           else if (pressedKeysRef.current.has('s') && pressedKeysRef.current.has('j')) { nextState = 'crouch_punch'; player1HitRegisteredRef.current = false; }
           else if (pressedKeysRef.current.has('s') && pressedKeysRef.current.has('k')) { nextState = 'crouch_kick'; player1HitRegisteredRef.current = false; }
-          // 單鍵
           else if (pressedKeysRef.current.has('j')) { nextState = 'punch'; player1HitRegisteredRef.current = false; }
           else if (pressedKeysRef.current.has('k')) { nextState = 'kick'; player1HitRegisteredRef.current = false; }
           else if (pressedKeysRef.current.has('l') && prev.energy >= prev.maxEnergy) { 
@@ -1179,7 +1218,6 @@ useEffect(() => {
             player1HitRegisteredRef.current = false;
           }
           else if (pressedKeysRef.current.has('w')) { nextState = 'pre_jump'; }
-          // 持續狀態
           else if (pressedKeysRef.current.has('a') || pressedKeysRef.current.has('d')) {
             nextState = (prev.facing === (pressedKeysRef.current.has('a') ? 'left' : 'right')) ? 'walk_forward' : 'walk_backward';
           } else if (pressedKeysRef.current.has('s')) {
@@ -1195,16 +1233,14 @@ useEffect(() => {
 
       // 3. 水平位置更新
       let nextX = prev.position.x;
-      // 【修正】讓角色在跳躍時也能根據方向鍵移動
       if (prev.state !== 'hit' && (pressedKeysRef.current.has('a') || pressedKeysRef.current.has('d')) && !['crouch', 'punch', 'kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(nextState)) {
         const direction = pressedKeysRef.current.has('a') ? 'left' : 'right';
         nextX = prev.position.x + (direction === 'left' ? -MOVE_SPEED : MOVE_SPEED);
     }
       
-    const minX = cameraXRef.current; // 攝影機的左邊緣
-    const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH; // 攝影機的右邊緣
+    const minX = cameraXRef.current;
+    const maxX = cameraXRef.current + GAME_WIDTH - CHARACTER_WIDTH;
     nextX = Math.max(minX, Math.min(maxX, nextX));
-
 
       // 4. 最終狀態返回
       return {
@@ -1213,19 +1249,17 @@ useEffect(() => {
         position: { x: nextX, y: nextY },
         velocityY: nextVelocityY,
         isGrounded: nextIsGrounded,
-        // 從空中落地時，進入 'landing' 狀態
         state: (nextIsGrounded && !prev.isGrounded) ? 'landing' : nextState
       };
     });
 
 // --- AI 狀態更新 (使用 FSM) ---
 setPlayer2(prev => {
-  if (gameState.gamePhase !== 'level-battle' || gameState.isPaused) {
+  if (currentGameState.gamePhase !== 'level-battle' || currentGameState.isPaused) {
     return prev;
   }
   
   const uninterruptibleStates = ['hit', 'dead', 'victory', 'special_attack', 'punch', 'kick', 'crouch_punch', 'crouch_kick', 'jump', 'jump_punch', 'jump_kick', 'pre_jump', 'landing', 'defending'];
-      // 【關鍵】如果 AI 正在執行不可中斷的動作，我們只更新物理，不呼叫大腦
       if (uninterruptibleStates.includes(prev.state)) {
         let nextVelocityY = prev.velocityY - GRAVITY;
         let nextY = prev.position.y + nextVelocityY;
@@ -1237,13 +1271,13 @@ setPlayer2(prev => {
           position: { ...prev.position, y: nextY },
           velocityY: nextVelocityY,
           isGrounded: nextIsGrounded,
-          // 【重要】如果 AI 正在連招中，動畫結束後不直接變回 idle，而是讓大腦在下一幀決定
           state: (nextIsGrounded && !prev.isGrounded && !prev.aiCombo) ? 'idle' : prev.state
         };
       }
 
       const p1 = player1Ref.current;
-      const decision = aiBrain(prev, p1, gameState.currentLevel, winStreak); // 傳入 winStreak
+      // 【修復】傳入從 ref 讀取的最新連勝次數
+      const decision = aiBrain(prev, p1, currentGameState.currentLevel, currentWinStreak);
 
       let nextState = decision.action;
       let nextAiState = decision.nextAiState;
@@ -1293,11 +1327,10 @@ setPlayer2(prev => {
     isGrounded: nextIsGrounded,
     state: nextState,
     aiState: nextAiState,
-    aiActionTimer: nextTimer, // 【新增】更新 AI 的思考計時器
+    aiActionTimer: nextTimer,
   };
 });
 
-        // 【新增以下攝影機邏輯】
       const p1_x = player1Ref.current.position.x;
       const p2_x = player2Ref.current.position.x;
       const midpoint = (p1_x + p2_x) / 2;
@@ -1316,7 +1349,7 @@ setPlayer2(prev => {
       cancelAnimationFrame(gameLoopRef.current);
     }
   };
-}, [gameState.gamePhase, gameState.isPaused]);
+}, []); // 【修復】依賴項維持空陣列，確保 gameLoop 只在組件掛載時啟動一次
 
 // 【貼上這段全新的、專門用於碰撞檢測的 useEffect】
 useEffect(() => {
@@ -1324,21 +1357,20 @@ useEffect(() => {
   const p2 = player2Ref.current;
   const p1Frame = p1FrameRef.current;
   const p2Frame = p2FrameRef.current;
+  const currentGameState = gameStateRef.current; // 使用 Ref 獲取最新狀態
   
   const isPlayer1Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick'].includes(p1.state);
   
-  // 【核心修正】在每次攻擊動畫開始時，重設碰撞旗標
-  if (isPlayer1Attacking && p1Frame <= 2) { // 通常前 1-2 幀是準備動作
-  player1HitRegisteredRef.current = false;
-}
+  if (isPlayer1Attacking && p1Frame <= 2) { 
+    player1HitRegisteredRef.current = false;
+  }
 
   if (
-    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer1Attacking &&
+    currentGameState.gamePhase === 'level-battle' && !currentGameState.isPaused && isPlayer1Attacking &&
     !player1HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p1HitBoxes = getAttackHitBox(p1, p1Frame, player1CollisionData);
-    const p2HurtBoxes = getHurtBox(p2, player2CurrentFrame, player2CollisionData);
-    // 找到實際碰撞的點
+    const p2HurtBoxes = getHurtBox(p2, p2Frame, player2CollisionData);
     let intersectionPoint: { x: number; y: number } | null = null;
     for (const hitBox of p1HitBoxes) {
       for (const hurtBox of p2HurtBoxes) {
@@ -1353,13 +1385,12 @@ useEffect(() => {
     if (intersectionPoint) { 
       player1HitRegisteredRef.current = true;
       
-      const result = calculateCombatResult(p1, p2, gameState.currentLevel);
+      const result = calculateCombatResult(p1, p2, currentGameState.currentLevel);
       const baseAttackType = getBaseAttackType(p1.state);
-      const knockbackDirection = p1.facing === 'right' ? 1 : -1; // AI 應該往 p1 的朝向後退
+      const knockbackDirection = p1.facing === 'right' ? 1 : -1;
 
       if (result.defended) {
         setPlayer2(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending',
-          // 防禦擊退
           position: { ...prev.position, x: prev.position.x + BLOCK_KNOCKBACK_DISTANCE * knockbackDirection } }));
         addEffect('defending', p2.position.x, p2.position.y);
         if (baseAttackType) {
@@ -1368,28 +1399,29 @@ useEffect(() => {
       } else {
         setPlayer2(prev => {
           const newHealth = Math.max(0, prev.health - result.damage);
-          // 延遲 0.5 秒後，才更新紅色的 displayHealth
           setTimeout(() => {
             setPlayer2(p => ({ ...p, displayHealth: newHealth }));
           }, 500);
-          // 立刻更新綠色的 health
           return { ...prev, health: newHealth, state: 'hit',
-            // 受傷擊退
             position: { ...prev.position, x: prev.position.x + KNOCKBACK_DISTANCE * knockbackDirection } };
         });
         setPlayer1(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
         addEffect('hit', intersectionPoint.x, intersectionPoint.y);
         
-        // 只播放撞擊聲和受傷聲
         if (baseAttackType) {
           setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
-        playSfxWithDucking(sfxMap[`enemy${gameState.currentLevel}Hurt`]);
+        playSfxWithDucking(sfxMap[`enemy${currentGameState.currentLevel}Hurt`]);
       }
-
-      setTimeout(() => {
-        setPlayer2(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-      }, 500);
+     // 【最終修復】加回智慧的 setTimeout 作為安全網，只在角色仍處於 'hit' 狀態時才觸發重置
+     setTimeout(() => {
+      setPlayer2(prev => {
+        if (prev.state === 'hit' && prev.health > 0) {
+          return { ...prev, state: 'idle' };
+        }
+        return prev; // 如果狀態已改變（例如被onComplete修復了），則不執行任何操作
+      });
+    }, 500);
     }
   }
 }, [player1CurrentFrame]);
@@ -1399,22 +1431,21 @@ useEffect(() => {
   const p2 = player2Ref.current;
   const p1Frame = p1FrameRef.current;
   const p2Frame = p2FrameRef.current;
+  const currentGameState = gameStateRef.current; // 使用 Ref 獲取最新狀態
 
   const isPlayer2Attacking = ['punch', 'kick', 'jump_punch', 'jump_kick', 'special_attack', 'crouch_punch', 'crouch_kick', 'attacking'].includes(p2.state);
   
-  // 【核心修正】在每次攻擊動畫開始時，重設碰撞旗標
   if (isPlayer2Attacking && p2Frame <= 2) {
     player2HitRegisteredRef.current = false;
   }
 
   if (
-    gameState.gamePhase === 'level-battle' && !gameState.isPaused && isPlayer2Attacking &&
+    currentGameState.gamePhase === 'level-battle' && !currentGameState.isPaused && isPlayer2Attacking &&
     !player2HitRegisteredRef.current && player1CollisionData && player2CollisionData
   ) {
     const p2HitBoxes = getAttackHitBox(p2, p2Frame, player2CollisionData);
     const p1HurtBoxes = getHurtBox(p1, player1CurrentFrame, player1CollisionData);
 
-    // 找到實際碰撞的點
     let intersectionPoint: { x: number; y: number } | null = null;
     for (const hitBox of p2HitBoxes) {
       for (const hurtBox of p1HurtBoxes) {
@@ -1429,14 +1460,12 @@ useEffect(() => {
     if (intersectionPoint) { 
       player2HitRegisteredRef.current = true;
       
-      const result = calculateCombatResult(p2, p1, gameState.currentLevel);
+      const result = calculateCombatResult(p2, p1, currentGameState.currentLevel);
       const baseAttackType = getBaseAttackType(p2.state);
-      const knockbackDirection = p2.facing === 'right' ? 1 : -1; // 玩家應該往 p2 的朝向後退
-      const lvl = gameState.currentLevel;
+      const knockbackDirection = p2.facing === 'right' ? 1 : -1;
 
       if (result.defended) {
         setPlayer1(prev => ({ ...prev, health: Math.max(0, prev.health - result.damage), state: 'defending',
-          // 防禦擊退
           position: { ...prev.position, x: prev.position.x + BLOCK_KNOCKBACK_DISTANCE * knockbackDirection } }));
         addEffect('defending', p1.position.x, p1.position.y);
         if (baseAttackType) {
@@ -1445,28 +1474,29 @@ useEffect(() => {
       } else {
         setPlayer1(prev => {
           const newHealth = Math.max(0, prev.health - result.damage);
-          // 延遲 0.5 秒後，才更新紅色的 displayHealth
           setTimeout(() => {
             setPlayer1(p => ({ ...p, displayHealth: newHealth }));
           }, 500);
-          // 立刻更新綠色的 health
           return { ...prev, health: newHealth, state: 'hit',
-            // 受傷擊退
             position: { ...prev.position, x: prev.position.x + KNOCKBACK_DISTANCE * knockbackDirection } };
         });
         setPlayer2(prev => ({ ...prev, energy: Math.min(prev.maxEnergy, prev.energy + result.energyGain) }));
         addEffect('hit', intersectionPoint.x, intersectionPoint.y);
 
-        // 只播放撞擊聲和受傷聲
         if (baseAttackType) {
           setTimeout(() => playSfxWithDucking(sfxMap[`impact${baseAttackType}`]), 80);
         }
         playSfxWithDucking(sfxMap.playerHurt);
       }
-
-      setTimeout(() => {
-        setPlayer1(prev => (prev.health > 0 ? { ...prev, state: 'idle' } : prev));
-      }, 500);
+// 【最終修復】加回智慧的 setTimeout 作為安全網，只在角色仍處於 'hit' 狀態時才觸發重置
+setTimeout(() => {
+  setPlayer1(prev => {
+    if (prev.state === 'hit' && prev.health > 0) {
+      return { ...prev, state: 'idle' };
+    }
+    return prev; // 如果狀態已改變（例如被onComplete修復了），則不執行任何操作
+  });
+}, 500);
     }
   }
 }, [player2CurrentFrame]);
