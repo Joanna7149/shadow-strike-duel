@@ -733,7 +733,7 @@ const FightingGame: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     timeLeft: 60,
     currentLevel: 1,
-    gamePhase: 'level-battle',
+    gamePhase: 'cover',
     isPaused: false,
     playerPhoto: null,
     lastResult: null
